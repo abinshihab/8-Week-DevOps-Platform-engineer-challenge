@@ -22,11 +22,13 @@ jobs:
           terraform_version: 1.5.2
 
       - name: Terraform Init
+        working-directory: Week1/terraform-vpc-module
         run: terraform init
 
       - name: Terraform Validate
+        working-directory: Week1/terraform-vpc-module
         run: terraform validate
 
       - name: Terraform Plan
+        working-directory: Week1/terraform-vpc-module
         run: terraform plan
-
