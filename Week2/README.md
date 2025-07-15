@@ -32,7 +32,7 @@ Week2/
 
 ---
 
-## 📍 What You'll Learn
+## 📍 What I will Learn
 
 ### 🧠 Terraform State (Day 8–9)
 - What is `terraform.tfstate`?
