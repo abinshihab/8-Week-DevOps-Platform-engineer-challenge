@@ -23,11 +23,18 @@ Week2/
 │   ├── backend.tf
 │   ├── main.tf
 │   └── README.md
+├── terraform-vpc-remote-state/
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── backend.tf     # optional, if backend config is separate
 └── modules/
     └── vpc/
         ├── main.tf
         ├── outputs.tf
         ├── variables.tf
+        └── README.md   # optional, but good practice
+
 ```
 
 ---
