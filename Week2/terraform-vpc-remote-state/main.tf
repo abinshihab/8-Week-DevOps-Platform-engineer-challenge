@@ -1,25 +1,21 @@
-provider "aws" {
-  region = var.aws_region
-}
-
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
 
   tags = {
-    Name = "dev-vpc"
+    Name = "${var.environment}-vpc"
   }
 }
 
 resource "aws_subnet" "public_subnet" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.public_subnet_cidr
-  availability_zone = var.availability_zone
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_cidr
+  availability_zone       = var.availability_zone
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "dev-public-subnet"
+    Name = "${var.environment}-public-subnet"
   }
 }
 
@@ -27,7 +23,7 @@ resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "dev-igw"
+    Name = "${var.environment}-igw"
   }
 }
 
@@ -40,7 +36,7 @@ resource "aws_route_table" "public_rt" {
   }
 
   tags = {
-    Name = "dev-public-rt"
+    Name = "${var.environment}-public-rt"
   }
 }
 

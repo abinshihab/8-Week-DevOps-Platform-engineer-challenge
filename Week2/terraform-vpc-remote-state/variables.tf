@@ -1,5 +1,5 @@
 variable "aws_region" {
-  description = "AWS region to deploy resources"
+  description = "AWS region"
   type        = string
   default     = "us-east-1"
 }
@@ -17,7 +17,12 @@ variable "public_subnet_cidr" {
 }
 
 variable "availability_zone" {
-  description = "Availability Zone for the subnet"
+  description = "Availability Zone"
   type        = string
   default     = "us-east-1a"
+}
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
 }
