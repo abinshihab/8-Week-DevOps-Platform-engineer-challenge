@@ -7,5 +7,13 @@ variable "vpc_cidr" {
 }
 
 variable "environment" {
-  default = "dev"
+  default = "prod"
+}
+variable "public_subnet_cidr" {
+  description = "CIDR block for the public subnet"
+  type        = string
+}
+variable "availability_zone" {
+  description = "Availability zone for the subnet"
+  type        = string
 }
