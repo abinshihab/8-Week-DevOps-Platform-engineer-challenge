@@ -6,6 +6,7 @@ on:
       - 'Week2/terraform-vpc-remote-state/envs/dev/**'
       - 'Week2/terraform-vpc-remote-state/envs/stage/**'
       - 'Week2/terraform-vpc-remote-state/envs/prod/**'
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -30,9 +31,9 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        working-directory: envs/${{ matrix.env }}
+        working-directory: Week2/terraform-vpc-remote-state/envs/${{ matrix.env }}
         run: terraform init
 
       - name: Terraform Plan
-        working-directory: envs/${{ matrix.env }}
+        working-directory: Week2/terraform-vpc-remote-state/envs/${{ matrix.env }}
         run: terraform plan -var-file="terraform.tfvars"
