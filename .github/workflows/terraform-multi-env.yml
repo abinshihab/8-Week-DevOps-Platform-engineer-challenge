@@ -1,6 +1,5 @@
-name: Terraform Multi-Env CI
-
 on:
+  workflow_dispatch:  # 👈 this enables manual trigger from GitHub UI
   push:
     paths:
       - 'Week2/terraform-vpc-remote-state/envs/dev/**'
