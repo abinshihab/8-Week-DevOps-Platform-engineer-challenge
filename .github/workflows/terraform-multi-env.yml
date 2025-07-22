@@ -3,10 +3,9 @@ name: Terraform Multi-Env CI
 on:
   push:
     paths:
-      - 'envs/dev/**'
-      - 'envs/stage/**'
-      - 'envs/prod/**'
-
+      - 'Week2/terraform-vpc-remote-state/envs/dev/**'
+      - 'Week2/terraform-vpc-remote-state/envs/stage/**'
+      - 'Week2/terraform-vpc-remote-state/envs/prod/**'
 jobs:
   terraform:
     runs-on: ubuntu-latest
