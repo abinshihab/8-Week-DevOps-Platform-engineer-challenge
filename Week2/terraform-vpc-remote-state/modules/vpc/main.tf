@@ -1,5 +1,4 @@
 provider "aws" {
-  # Usually provider is configured at the root level, but if needed, you can specify here
   region = var.aws_region
 }
 
@@ -15,13 +14,14 @@ resource "aws_vpc" "this" {
 }
 
 resource "aws_subnet" "public" {
+  for_each                = { for idx, cidr in var.public_subnet_cidrs : idx => cidr }
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = var.public_subnet_cidr
-  availability_zone       = var.availability_zone
+  cidr_block              = each.value
+  availability_zone       = var.availability_zones[each.key]
   map_public_ip_on_launch = true
 
   tags = {
-    Name        = "${var.environment}-public-subnet"
+    Name        = "${var.environment}-public-subnet-${each.key}"
     Environment = var.environment
   }
 }
@@ -50,6 +50,7 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table_association" "public_subnet_assoc" {
-  subnet_id      = aws_subnet.public.id
+  for_each       = aws_subnet.public
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
 }
