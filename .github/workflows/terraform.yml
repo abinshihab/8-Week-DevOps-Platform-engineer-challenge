@@ -4,9 +4,17 @@ on:
   push:
     branches:
       - dev
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+      - '.github/workflows/**'
   pull_request:
     branches:
       - dev
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+      - '.github/workflows/**'
 
 jobs:
   terraform:
@@ -26,7 +34,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1  # or your AWS region
+          aws-region: us-east-1
 
       - name: Terraform Init
         working-directory: Week1/terraform-vpc-module
@@ -39,3 +47,17 @@ jobs:
       - name: Terraform Plan
         working-directory: Week1/terraform-vpc-module
         run: terraform plan
+
+      - name: Setup tflint
+        uses: terraform-linters/setup-tflint@v1
+        with:
+          tflint_version: latest
+
+      - name: Run tflint
+        working-directory: Week1/terraform-vpc-module
+        run: tflint
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working-directory: Week1/terraform-vpc-module
