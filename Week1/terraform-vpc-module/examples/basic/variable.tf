@@ -1,5 +1,10 @@
+variable "aws_region" {
+  description = "AWS region to deploy resources"
+  type        = string
+}
+
 variable "environment" {
-  description = "Environment name (e.g., dev, stage, prod)"
+  description = "Environment name (e.g., dev, prod)"
   type        = string
 }
 
@@ -24,13 +29,7 @@ variable "availability_zones" {
 }
 
 variable "enable_nat_gateway" {
-  description = "Whether to enable a NAT Gateway for private subnets"
-  type        = bool
-  default     = true
-}
-
-variable "enable_dns_hostnames" {
-  description = "Enable DNS hostnames in the VPC"
+  description = "Enable NAT Gateway for internet access from private subnets"
   type        = bool
   default     = true
 }
@@ -41,12 +40,15 @@ variable "enable_dns_support" {
   default     = true
 }
 
+variable "enable_dns_hostnames" {
+  description = "Enable DNS hostnames in the VPC"
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
-  description = "Map of tags to apply to resources"
+  description = "Map of tags to apply to all resources"
   type        = map(string)
   default     = {}
 }
-variable "aws_region" {
-  description = "AWS region where resources will be deployed"
-  type        = string
-}
+
