@@ -1,15 +1,17 @@
-module "vpc" {
-  source = "../../"
-
-  vpc_cidr     = "10.0.0.0/16"
-  environment  = "dev"
-  azs          = ["us-east-1a", "us-east-1b"]
-  public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
-  private_subnet_cidrs = ["10.0.3.0/24", "10.0.4.0/24"]
-
-  tags = {
-    owner      = "ahmed"
-    managed_by = "terraform"
-  }
+provider "aws" {
+  region = var.aws_region
 }
 
+module "vpc" {
+  source               = "../../../../Week2/terraform-vpc-remote-state/modules/vpc"  # Adjust if you put it elsewhere
+  aws_region           = var.aws_region
+  environment          = var.environment
+  vpc_cidr             = var.vpc_cidr
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+  availability_zones   = var.availability_zones
+  enable_nat_gateway   = var.enable_nat_gateway
+  enable_dns_support   = var.enable_dns_support
+  enable_dns_hostnames = var.enable_dns_hostnames
+  tags                 = var.tags
+}

@@ -1,10 +1,10 @@
 variable "aws_region" {
-  description = "AWS region to deploy resources"
+  description = "AWS region to deploy the resources"
   type        = string
 }
 
 variable "environment" {
-  description = "Environment name (e.g., dev, prod)"
+  description = "Deployment environment (e.g., dev, stage, prod)"
   type        = string
 }
 
@@ -14,41 +14,36 @@ variable "vpc_cidr" {
 }
 
 variable "public_subnet_cidrs" {
-  description = "List of CIDR blocks for public subnets"
+  description = "List of CIDRs for public subnets"
   type        = list(string)
 }
 
 variable "private_subnet_cidrs" {
-  description = "List of CIDR blocks for private subnets"
+  description = "List of CIDRs for private subnets"
   type        = list(string)
 }
 
 variable "availability_zones" {
-  description = "List of availability zones to use"
+  description = "List of Availability Zones"
   type        = list(string)
 }
 
 variable "enable_nat_gateway" {
-  description = "Enable NAT Gateway for internet access from private subnets"
+  description = "Enable or disable NAT Gateway"
   type        = bool
-  default     = true
 }
 
 variable "enable_dns_support" {
-  description = "Enable DNS support in the VPC"
+  description = "Enable or disable DNS support"
   type        = bool
-  default     = true
 }
 
 variable "enable_dns_hostnames" {
-  description = "Enable DNS hostnames in the VPC"
+  description = "Enable or disable DNS hostnames"
   type        = bool
-  default     = true
 }
 
 variable "tags" {
-  description = "Map of tags to apply to all resources"
+  description = "Common tags applied to all resources"
   type        = map(string)
-  default     = {}
 }
-
