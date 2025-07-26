@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 module "vpc" {
-  source               = "../../../../Week2/terraform-vpc-remote-state/modules/vpc"  # Adjust if you put it elsewhere
+  source               = "../../modules/vpc"  # adjust based on your structure
   aws_region           = var.aws_region
   environment          = var.environment
   vpc_cidr             = var.vpc_cidr

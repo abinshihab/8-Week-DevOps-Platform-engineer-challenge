@@ -9,3 +9,9 @@ terraform.tfstate*
 *.tfvars
 *.tfvars.json
 !envs/stage/terraform.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.backup
+crash.log
