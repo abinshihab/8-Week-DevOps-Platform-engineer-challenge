@@ -1,5 +1,6 @@
 aws_region         = "us-east-1"
 environment        = "prod"
+name               = "web-asg"  # ✅ Add this
 
 vpc_cidr           = "10.0.0.0/16"
 
