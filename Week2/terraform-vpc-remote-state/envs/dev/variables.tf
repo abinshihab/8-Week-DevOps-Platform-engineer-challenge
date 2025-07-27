@@ -4,9 +4,12 @@ variable "aws_region" {
 }
 
 variable "environment" {
-  default = "dev"
+  description = "Environment name (e.g. dev, prod)"
+  type        = string
+  default     = "dev"
 }
 
+# --- VPC-related ---
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
@@ -45,8 +48,50 @@ variable "enable_dns_hostnames" {
   default     = true
 }
 
+# --- Tagging ---
 variable "tags" {
   description = "Map of tags to apply to all resources"
   type        = map(string)
   default     = {}
+}
+
+# --- Compute-related (for EC2/ASG) ---
+variable "ami_id" {
+  description = "AMI ID to use for EC2 instances"
+  type        = string
+}
+
+variable "instance_type" {
+  description = "EC2 instance type to launch"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "key_name" {
+  description = "SSH key pair name for EC2 instances"
+  type        = string
+}
+
+variable "desired_capacity" {
+  description = "Desired number of EC2 instances in ASG"
+  type        = number
+  default     = 2
+}
+
+variable "min_size" {
+  description = "Minimum number of EC2 instances in ASG"
+  type        = number
+  default     = 1
+}
+
+variable "max_size" {
+  description = "Maximum number of EC2 instances in ASG"
+  type        = number
+  default     = 3
+}
+
+variable "user_data_path" {
+  description = "Path to user data script for EC2"
+  type        = string
+  default     = "../../scripts/user_data.sh"
 }
