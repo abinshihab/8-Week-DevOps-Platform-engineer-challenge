@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 module "vpc" {
-  source = "../modules/vpc"  # adjust this path to your actual module location
+  source = "../../../modules/vpc"  # adjust this path to your actual module location
 
   aws_region           = var.aws_region
   environment          = var.environment
