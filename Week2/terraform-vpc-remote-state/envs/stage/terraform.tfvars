@@ -1,5 +1,6 @@
 aws_region         = "us-east-1"
 environment        = "stage"
+name = "web-asg"
 
 vpc_cidr           = "10.0.0.0/16"
 
