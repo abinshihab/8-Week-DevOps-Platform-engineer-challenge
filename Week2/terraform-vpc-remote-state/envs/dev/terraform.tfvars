@@ -1,9 +1,10 @@
 aws_region         = "us-east-1"
 environment        = "dev"
 
-vpc_cidr           = "10.0.0.0/16"
+# VPC settings
+vpc_cidr = "10.0.0.0/16"
 
-public_subnet_cidrs  = [
+public_subnet_cidrs = [
   "10.0.1.0/24",
   "10.0.2.0/24"
 ]
@@ -13,26 +14,30 @@ private_subnet_cidrs = [
   "10.0.12.0/24"
 ]
 
-availability_zones   = [
+availability_zones = [
   "us-east-1a",
   "us-east-1b"
 ]
 
-enable_nat_gateway    = true
-enable_dns_support    = true
-enable_dns_hostnames  = true
+enable_nat_gateway   = true
+enable_dns_support   = true
+enable_dns_hostnames = true
 
+# Tags
 tags = {
   Environment = "dev"
   Owner       = "Ahmed Bin Shehab"
+  Project     = "8-week-cloud-challenge"
 }
 
-ami_id             = "ami-0abcdef1234567890"    # Replace with valid AMI for your region
-instance_type      = "t3.micro"
-key_name           = "my-aws-key"               # Replace with your key pair name
+# Compute (EC2/ASG) config
+ami_id         = "ami-00350f14f2695dd57"  # ✅ Replace with a real AMI from us-east-1
+instance_type  = "t3.micro"
+key_name       = "ec2-key"             # ✅ Replace with your actual key pair name
 
-desired_capacity    = 2
-min_size            = 1
-max_size            = 3
+desired_capacity = 2
+min_size         = 1
+max_size         = 3
 
-user_data_path      = "../../scripts/user_data.sh"  # Path relative to envs/dev folder
+# User data script
+user_data_path = "${path.module}/../../scripts/user_data.sh"
