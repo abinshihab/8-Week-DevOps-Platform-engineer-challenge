@@ -98,5 +98,6 @@ variable "name" {
 }
 variable "security_group_ids" {
   type = list(string)
-  description = "List of security group IDs to attach"
+  description = "List of security group IDs to associate with the EC2 instances"
 }
+

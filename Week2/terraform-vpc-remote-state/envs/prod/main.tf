@@ -37,7 +37,7 @@ module "compute" {
   key_name            = var.key_name
   vpc_id              = module.vpc.vpc_id
   subnet_ids          = module.vpc.public_subnets
-  security_group_ids  = [module.vpc.default_sg]           
+  security_group_ids  = [module.compute.security_group_id]         
   desired_capacity    = var.desired_capacity
   min_size            = var.min_size
   max_size            = var.max_size
