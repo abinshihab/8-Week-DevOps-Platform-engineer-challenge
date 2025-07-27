@@ -31,3 +31,7 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+variable "user_data" {
+  description = "User data to run on EC2 instance launch"
+  type        = string
+}

@@ -64,3 +64,15 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+variable "security_group_ids" {
+  type = list(string)
+  description = "List of security group IDs to attach"
+}
+variable "user_data" {
+  description = "User data to run on EC2 instance launch"
+  type        = string
+}
+variable "name" {
+  description = "Name prefix to use for resources (e.g., Auto Scaling Group)"
+  type        = string
+}

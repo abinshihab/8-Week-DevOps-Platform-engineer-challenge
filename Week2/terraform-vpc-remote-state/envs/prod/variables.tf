@@ -8,8 +8,7 @@ variable "environment" {
   type        = string
   default     = "prod"
 }
-
-# --- VPC-related ---
+#--- VPC-related ---
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
@@ -47,15 +46,13 @@ variable "enable_dns_hostnames" {
   type        = bool
   default     = true
 }
-
-# --- Tagging ---
+#--- Tagging ---
 variable "tags" {
   description = "Map of tags to apply to all resources"
   type        = map(string)
   default     = {}
 }
-
-# --- Compute-related (for EC2/ASG) ---
+#--- Compute-related (for EC2/ASG) ---
 variable "ami_id" {
   description = "AMI ID to use for EC2 instances"
   type        = string
@@ -94,4 +91,12 @@ variable "user_data_path" {
   description = "Path to user data script for EC2"
   type        = string
   default     = "../../scripts/user_data.sh"
+}
+variable "name" {
+  description = "Name prefix for compute resources"
+  type        = string
+}
+variable "security_group_ids" {
+  type = list(string)
+  description = "List of security group IDs to attach"
 }
