@@ -96,3 +96,8 @@ variable "name" {
   description = "Name prefix for compute resources"
   type        = string
 }
+variable "user_data" {
+  description = "User data script to run on EC2 launch"
+  type        = string
+  default     = ""
+}
