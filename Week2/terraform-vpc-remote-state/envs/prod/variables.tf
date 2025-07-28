@@ -96,7 +96,3 @@ variable "name" {
   description = "Name prefix for compute resources"
   type        = string
 }
-variable "security_group_ids" {
-  type = list(string)
-  description = "List of security group IDs to attach"
-}
