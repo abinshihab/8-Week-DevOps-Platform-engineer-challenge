@@ -41,4 +41,5 @@ min_size         = 1
 max_size         = 3
 
 # User data script
-user_data_path = "${path.module}/../../scripts/user_data.sh"
+user_data_path = "../../scripts/user_data.sh"
+
