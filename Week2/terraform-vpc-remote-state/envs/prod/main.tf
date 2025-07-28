@@ -39,7 +39,6 @@ module "compute" {
   subnet_ids          = module.vpc.public_subnets     
   desired_capacity    = var.desired_capacity
   min_size            = var.min_size
-  max_size            = var.max_size
-  user_data           = file(var.user_data_path)         
+  max_size            = var.max_size      
   tags                = var.tags
 }
