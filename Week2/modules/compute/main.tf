@@ -39,8 +39,6 @@ resource "aws_launch_template" "this" {
 
   key_name = var.key_name
 
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
-
   user_data = var.user_data_base64
 
   tags = {
