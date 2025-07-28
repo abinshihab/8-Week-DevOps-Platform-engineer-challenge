@@ -36,15 +36,16 @@ resource "aws_launch_template" "this" {
   name_prefix   = "${var.environment}-lt-"
   image_id      = var.ami_id
   instance_type = var.instance_type
+  key_name      = var.key_name
+  user_data     = var.user_data_base64
 
-  key_name = var.key_name
-
-  user_data = var.user_data_base64
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]  # 👈 Add this
 
   tags = {
     Name = "${var.environment}-lt"
   }
 }
+
 
 resource "aws_autoscaling_group" "this" {
   name                      = "${var.environment}-asg"
