@@ -24,7 +24,7 @@ module "vpc" {
   enable_nat_gateway    = var.enable_nat_gateway
   enable_dns_support    = var.enable_dns_support
   enable_dns_hostnames  = var.enable_dns_hostnames
-  user_data           = var.user_data_path 
+  user_data             = var.user_data_path 
   tags                  = var.tags
 }
 #--- Compute Module ---
