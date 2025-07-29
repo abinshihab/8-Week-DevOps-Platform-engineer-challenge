@@ -1,3 +1,12 @@
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Week2/terraform-vpc-remote-state/envs/dev/**'
+      - 'Week2/terraform-vpc-remote-state/envs/stage/**'
+      - 'Week2/terraform-vpc-remote-state/envs/prod/**'
+      - 'Week2/terraform-vpc-remote-state/modules/**'  # ✅ added
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
