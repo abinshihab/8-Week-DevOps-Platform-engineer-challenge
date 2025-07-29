@@ -29,7 +29,7 @@ module "vpc" {
 }
 #--- Security Module ---
 module "security" {
-  source      = "../../../modules/security"
+  source      = "../../../modules/Secuirty"
   vpc_id      = module.vpc.vpc_id
   environment = var.environment
   tags        = var.tags
@@ -55,7 +55,7 @@ module "alb" {
   source             = "../../../modules/alb"
   vpc_id             = module.vpc.vpc_id
   subnet_ids         = module.vpc.public_subnet_ids
-  security_group_ids = module.security.alb_sg_id
+  security_group_ids = [module.security.alb_sg_id]
   environment        = var.environment
   tags               = var.tags
 }
