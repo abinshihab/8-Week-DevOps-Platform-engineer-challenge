@@ -27,7 +27,14 @@ module "vpc" {
   user_data           = var.user_data_path 
   tags                  = var.tags
 }
-
+#--- Security Module ---
+module "security" {
+  source      = "../../../modules/security"
+  vpc_id      = module.vpc.vpc_id
+  environment = var.environment
+  tags        = var.tags
+}
+#--- Compute Module ---
 module "compute" {
   source              = "../../../modules/compute"
   environment         = var.environment
