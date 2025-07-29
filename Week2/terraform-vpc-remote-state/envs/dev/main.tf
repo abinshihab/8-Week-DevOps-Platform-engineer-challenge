@@ -24,7 +24,7 @@ module "vpc" {
   enable_nat_gateway    = var.enable_nat_gateway
   enable_dns_support    = var.enable_dns_support
   enable_dns_hostnames  = var.enable_dns_hostnames
-  user_data           = file(var.user_data_path) 
+  user_data           = var.user_data_path 
   tags                  = var.tags
 }
 
@@ -41,4 +41,13 @@ module "compute" {
   min_size            = var.min_size
   max_size            = var.max_size      
   tags                = var.tags
+}
+#--- Application Load Balancer Module ---
+module "alb" {
+  source             = "../../../modules/alb"
+  vpc_id             = module.vpc.vpc_id
+  subnet_ids         = module.vpc.public_subnet_ids
+  security_group_ids = [module.security.alb_sg_id]
+  environment        = var.environment
+  tags               = var.tags
 }
