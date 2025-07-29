@@ -91,6 +91,7 @@ variable "user_data_path" {
   description = "Path to user data script for EC2"
   type        = string
   default     = "../../scripts/user_data.sh"
+  
 }
 variable "name" {
   description = "Name prefix for compute resources"
