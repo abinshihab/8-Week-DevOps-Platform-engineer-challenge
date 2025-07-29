@@ -1,19 +1,11 @@
-on:
-  workflow_dispatch:
-  push:
-    paths:
-      - 'Week2/terraform-vpc-remote-state/envs/dev/**'
-      - 'Week2/terraform-vpc-remote-state/envs/stage/**'
-      - 'Week2/terraform-vpc-remote-state/envs/prod/**'
-      - 'Week2/terraform-vpc-remote-state/modules/**'  # ✅ added
-
 jobs:
   terraform:
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 1
       matrix:
         env: [dev, stage, prod]
-        
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -31,9 +23,9 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        working-directory: Week2/terraform-vpc-remote-state/envs/${{ matrix.env }}
+        working-directory: ${{ github.workspace }}/Week2/terraform-vpc-remote-state/envs/${{ matrix.env }}
         run: terraform init
 
       - name: Terraform Plan
-        working-directory: Week2/terraform-vpc-remote-state/envs/${{ matrix.env }}
+        working-directory: ${{ github.workspace }}/Week2/terraform-vpc-remote-state/envs/${{ matrix.env }}
         run: terraform plan -var-file="terraform.tfvars"
