@@ -89,3 +89,22 @@ variable "use_asg" {
   type        = bool
   default     = false
 }
+variable "enable_nat_gateway" {
+  description = "Whether to enable NAT Gateway for private subnets"
+  type        = bool
+  default     = false
+}
+variable "desired_capacity" {
+  type        = number
+  description = "Number of instances in ASG"
+}
+
+variable "min_size" {
+  type        = number
+  description = "Minimum size of ASG"
+}
+
+variable "max_size" {
+  type        = number
+  description = "Maximum size of ASG"
+}
