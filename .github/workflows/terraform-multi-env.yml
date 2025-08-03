@@ -2,10 +2,10 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'Week2/terraform-vpc-remote-state/envs/dev/**'
-      - 'Week2/terraform-vpc-remote-state/envs/stage/**'
-      - 'Week2/terraform-vpc-remote-state/envs/prod/**'
-      - 'Week2/terraform-vpc-remote-state/modules/**'  # ✅ added
+      - 'Week3/envs/dev/**'
+      - 'Week3/envs/stage/**'
+      - 'Week3/envs/prod/**'
+      - 'Week3/modules/**'  # ✅ added
 
 jobs:
   terraform:
