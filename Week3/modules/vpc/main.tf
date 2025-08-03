@@ -52,3 +52,26 @@ resource "aws_subnet" "private" {
     }
   )
 }
+resource "aws_security_group" "vpc_default_sg" {
+  name        = "${var.name}-default-sg"
+  description = "Default SG for ${var.name} VPC"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-default-sg"
+  })
+}

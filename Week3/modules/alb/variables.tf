@@ -1,25 +1,24 @@
 variable "environment" {
-  description = "Deployment environment"
   type        = string
+  description = "Environment name (e.g., dev, prod)"
 }
 
 variable "vpc_id" {
-  description = "VPC ID for ALB"
   type        = string
+  description = "VPC ID for the ALB and Target Group"
 }
 
 variable "subnet_ids" {
-  description = "Public subnet IDs"
   type        = list(string)
+  description = "List of subnet IDs for ALB"
 }
 
 variable "security_group_ids" {
-  description = "List of security group IDs for ALB"
   type        = list(string)
+  description = "List of security group IDs for ALB"
 }
 
 variable "tags" {
-  description = "Common tags"
   type        = map(string)
-  default     = {}
+  description = "Tags to apply"
 }
