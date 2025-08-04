@@ -1,67 +1,87 @@
 # Week 3 — Modular Infrastructure Composition & Autoscaling
 
-## Overview
+## 🚀 Overview
 
-In Week 3 of the 8-Week DevOps & Platform Engineer Challenge, the focus was on advancing the modular infrastructure built in Week 2 by composing multiple Terraform modules to create a scalable and highly available environment.
+In **Week 3** of the 8-Week DevOps & Platform Engineer Challenge, I focused on building a production-ready infrastructure by composing Terraform modules created in Week 2. This week was about making the system **scalable**, **highly available**, and **modular**.
 
-Key goals included:
-
-- Integrating NAT Gateways for secure internet access in private subnets  
-- Building Autoscaling Groups to enable dynamic scaling of EC2 instances  
-- Configuring Load Balancers (ALB) for traffic distribution  
-- Managing dependencies between modules for reusable infrastructure  
-- Enhancing Terraform state management for collaboration and remote execution  
-
----
-
-## What I Built
-
-- **NAT Gateway Module:** Developed a reusable module to deploy NAT Gateways across multiple Availability Zones, enabling private subnets to securely access the internet without exposure.  
-- **Autoscaling Group Module:** Created an ASG with launch configurations, health checks, and CPU-based scaling policies for automatic scaling of EC2 instances.  
-- **Load Balancer Module:** Configured an Application Load Balancer (ALB) with listeners and target groups to route incoming traffic to the autoscaled instances.  
-- **Environment Composition:** Combined VPC, NAT Gateway, Autoscaling Group, and Load Balancer modules into a cohesive, modular environment stack, promoting maintainability and scalability.  
-- **Terraform Backend:** Continued using S3 and DynamoDB backend for remote state storage and state locking to avoid conflicts during collaboration.  
+### 🔑 Objectives:
+- Add NAT Gateways for private subnets.
+- Build an Autoscaling Group (ASG) for dynamic EC2 scaling.
+- Attach Application Load Balancer (ALB) with health checks.
+- Refactor Terraform modules to cleanly handle dependencies.
+- Strengthen remote backend for state management.
 
 ---
 
-## Technologies & Tools
+## 🛠️ What I Built
 
-- Terraform (version X.Y.Z)  
-- AWS Provider (version X.Y)  
-- AWS Services: VPC, NAT Gateway, EC2, Auto Scaling, Application Load Balancer (ALB)  
-- Remote State Management: S3 + DynamoDB  
-- Git for version control  
+### ✅ NAT Gateway Module
+A reusable NAT Gateway module to enable internet access from private subnets without exposing them directly.
 
----
+### ✅ Autoscaling Group Module
+Provisioned an ASG with:
+- Launch configuration (AMI, instance type, etc.)
+- CPU-based scaling policy
+- Health checks and termination policies
 
-## Key Challenges & Solutions
+### ✅ Load Balancer Module
+Created an ALB with:
+- Listener (port 80)
+- Target group for the ASG
+- Health check configuration
 
-- **Managing Module Dependencies:** Utilized Terraform outputs and input variables effectively to wire modules together without hardcoding resource IDs, maintaining modularity.  
-- **Scaling Policies:** Implemented CPU utilization-based scaling; noticed latency in scaling actions, which highlighted the need to explore custom CloudWatch alarms for more responsive scaling.  
-- **State Management:** Configured remote backend with locking to prevent state corruption during concurrent runs, which is essential for team environments.  
-- **Security Configurations:** Carefully designed security groups to allow communication between ALB and EC2 instances while keeping the network secure.  
+### ✅ Modular Environment Composition
+Wired together multiple modules:
+- VPC
+- NAT Gateway
+- ASG
+- ALB
 
----
+Each component is reusable, parameterized, and deployable across environments.
 
-## Next Steps
-
-- Implement more granular scaling policies using additional metrics (memory, network IO).  
-- Integrate DNS and service discovery for dynamic service registration.  
-- Automate infrastructure deployment using CI/CD pipelines.  
-- Explore deployment strategies like blue-green or canary deployments for zero downtime updates.  
-
----
-
-## How to Use This Code
-
-1. Clone the repository.  
-2. Navigate to the appropriate environment folder (e.g., `environments/dev`).  
-3. Run `terraform init` to initialize modules and backend configuration.  
-4. Run `terraform plan` to review planned infrastructure changes.  
-5. Run `terraform apply` to deploy the infrastructure.  
+### ✅ Remote State Backend
+Used **S3** for state storage and **DynamoDB** for locking to ensure safe collaboration and consistency.
 
 ---
 
-*Prepared by Ahmed Bin Shehab*  
-*Senior IT Support Engineer & Cloud Solution Architect*  
-*Cloud Mind Company*  
+## 🔧 Tools & Technologies
+
+- **Terraform** (v1.x)
+- **AWS Provider** (v5.x)
+- **AWS Services**: VPC, NAT Gateway, EC2, Auto Scaling, ALB
+- **Remote State**: S3 + DynamoDB
+- **Git** for version control
+
+---
+
+## ⚔️ Key Challenges & Solutions
+
+- **Module Dependencies**: Passed outputs from one module into another cleanly to maintain separation of concerns.
+- **Scaling Latency**: Learned that CPU-based scaling may react slowly; plan to explore custom CloudWatch metrics.
+- **Security Groups**: Designed SGs carefully for ALB-EC2 communication without overexposing instances.
+- **State Safety**: Enabled state locking to avoid concurrent modifications during `terraform apply`.
+
+---
+
+## ⏭️ What's Next?
+
+- Add metrics like **memory & network I/O** to scaling policy.
+- Integrate **Route 53** and **service discovery** (via ECS or Consul).
+- Automate with **CI/CD** (e.g., GitHub Actions or GitLab CI).
+- Experiment with **Blue/Green** and **Canary deployments**.
+
+---
+
+## 📌 How to Use This
+
+1. Clone the repo.
+2. Navigate to `envs/dev`.
+3. Run `terraform init`.
+4. Run `terraform plan`.
+5. Run `terraform apply`.
+
+---
+
+📍 *By Ahmed Bin Shehab*  
+💼 *Sr. IT Support Engineer | Cloud Architect @ Cloud Mind Company*  
+🌐 *AWS | Azure | OCI Certified*

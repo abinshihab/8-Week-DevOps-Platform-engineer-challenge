@@ -2,6 +2,7 @@ provider "aws" {
   region = var.aws_region
 }
 
+# VPC Module
 module "vpc" {
   source                = "./modules/vpc"
   aws_region            = var.aws_region
@@ -15,11 +16,8 @@ module "vpc" {
   enable_dns_support    = true
   tags                  = var.tags
   user_data = file("./scripts/user_data.sh")
-
 }
-
-
-# ✅ Create ALB Security Group (outside modules to avoid cycles)
+# ALB Security Group (public access on port 80)
 resource "aws_security_group" "alb_sg" {
   name        = "${var.environment}-alb-sg"
   description = "Allow HTTP traffic to ALB"
@@ -34,7 +32,7 @@ resource "aws_security_group" "alb_sg" {
   }
 
   egress {
-    description = "Allow all egress"
+    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -44,6 +42,7 @@ resource "aws_security_group" "alb_sg" {
   tags = var.tags
 }
 
+# ALB Module
 module "alb" {
   source             = "./modules/alb"
   environment        = var.environment
@@ -52,14 +51,20 @@ module "alb" {
   security_group_ids = [aws_security_group.alb_sg.id]
   tags               = var.tags
 }
+
+# Compute Module (EC2/ASG)
 module "compute" {
   source              = "./modules/compute"
   ami_id              = var.ami_id
   instance_type       = var.instance_type
   key_name            = var.key_name
-  subnet_ids  = module.vpc.private_subnet_ids
+  subnet_ids          = module.vpc.private_subnet_ids
   environment         = var.environment
   tags                = var.tags
   name                = var.name
-  vpc_id              =  module.vpc.vpc_id
+  vpc_id              = module.vpc.vpc_id
+
+  alb_target_group_arn = module.alb.target_group_arn
+  user_data           = file("./scripts/user_data.sh")
+  target_group_arn = module.alb.target_group_arn
 }

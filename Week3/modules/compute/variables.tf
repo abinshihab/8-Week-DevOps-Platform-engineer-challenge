@@ -74,3 +74,15 @@ variable "user_data" {
   type        = string
   default     = ""
 }
+
+variable "alb_target_group_arn" {
+  description = "The ARN of the ALB Target Group"
+  type        = string
+}
+variable "target_group_arn" {
+  description = "The ARN of the ALB Target Group"
+  type        = string
+  default     = null # Optional: Makes it optional if you're not always using it
+}
+
+

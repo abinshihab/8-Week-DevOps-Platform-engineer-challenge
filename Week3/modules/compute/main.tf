@@ -68,3 +68,9 @@ resource "aws_autoscaling_group" "this" {
 locals {
   user_data_base64 = base64encode(var.user_data)
 }
+resource "aws_autoscaling_attachment" "this" {
+  count                  = var.target_group_arn != null ? 1 : 0
+  autoscaling_group_name = aws_autoscaling_group.this.name
+  lb_target_group_arn   = var.alb_target_group_arn
+
+}
