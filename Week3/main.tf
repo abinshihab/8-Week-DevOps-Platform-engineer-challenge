@@ -53,6 +53,7 @@ module "alb" {
 }
 
 # Compute Module (EC2/ASG)
+
 module "compute" {
   source              = "./modules/compute"
   ami_id              = var.ami_id
@@ -65,6 +66,9 @@ module "compute" {
   vpc_id              = module.vpc.vpc_id
 
   alb_target_group_arn = module.alb.target_group_arn
-  user_data           = file("./scripts/user_data.sh")
-  target_group_arn = module.alb.target_group_arn
+  user_data            = file("./scripts/user_data.sh")
+
+  desired_capacity     = 1
+  min_size             = 1
+  max_size             = 2
 }

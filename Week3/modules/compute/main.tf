@@ -45,15 +45,16 @@ resource "aws_launch_template" "this" {
     Name = "${var.environment}-lt"
   }
 }
-
-
 resource "aws_autoscaling_group" "this" {
   name                      = "${var.environment}-asg"
   desired_capacity          = var.desired_capacity
   max_size                  = var.max_size
   min_size                  = var.min_size
   vpc_zone_identifier       = var.subnet_ids
-  health_check_type         = "EC2"
+  health_check_type         = "ELB"
+  target_group_arns         = [var.alb_target_group_arn]
+  health_check_grace_period = 300
+
   launch_template {
     id      = aws_launch_template.this.id
     version = "$Latest"
@@ -65,6 +66,9 @@ resource "aws_autoscaling_group" "this" {
     propagate_at_launch = true
   }
 }
+
+
+
 locals {
   user_data_base64 = base64encode(var.user_data)
 }
