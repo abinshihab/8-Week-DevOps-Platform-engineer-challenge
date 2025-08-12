@@ -108,3 +108,13 @@ variable "max_size" {
   type        = number
   description = "Maximum size of ASG"
 }
+variable "my_trusted_ip" {
+  description = "Your trusted public IP address in CIDR notation, e.g. 203.0.113.42/32"
+  type        = string
+}
+
+variable "acm_certificate_arn" {
+  description = "ACM Certificate ARN for HTTPS listener. Leave empty to disable HTTPS"
+  type        = string
+  default     = ""
+}

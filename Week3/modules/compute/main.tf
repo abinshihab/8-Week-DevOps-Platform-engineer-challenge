@@ -1,22 +1,27 @@
+variable "alb_security_group_id" {
+  description = "Security group ID of the ALB"
+  type        = string
+}
+
 resource "aws_security_group" "ec2_sg" {
   name        = "${var.environment}-ec2-sg"
   description = "Allow inbound access"
   vpc_id      = var.vpc_id
 
   ingress {
-    description = "Allow SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.ssh_cidr_blocks
+    description     = "Allow SSH"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    cidr_blocks     = var.ssh_cidr_blocks
   }
 
   ingress {
-    description = "Allow HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = "Allow HTTP from ALB only"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [var.alb_security_group_id]
   }
 
   egress {
@@ -39,12 +44,13 @@ resource "aws_launch_template" "this" {
   key_name      = var.key_name
   user_data     = local.user_data_base64
 
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]  # 👈 Add this
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
 
   tags = {
     Name = "${var.environment}-lt"
   }
 }
+
 resource "aws_autoscaling_group" "this" {
   name                      = "${var.environment}-asg"
   desired_capacity          = var.desired_capacity
@@ -67,14 +73,6 @@ resource "aws_autoscaling_group" "this" {
   }
 }
 
-
-
 locals {
   user_data_base64 = base64encode(var.user_data)
-}
-resource "aws_autoscaling_attachment" "this" {
-  count                  = var.target_group_arn != null ? 1 : 0
-  autoscaling_group_name = aws_autoscaling_group.this.name
-  lb_target_group_arn   = var.alb_target_group_arn
-
 }

@@ -28,13 +28,21 @@ module "vpc" {
 ############################################
 resource "aws_security_group" "alb_sg" {
   name        = "${var.environment}-alb-sg"
-  description = "Allow HTTP traffic to ALB"
+  description = "Allow HTTP and HTTPS traffic to ALB"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
     description = "Allow HTTP from anywhere"
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Allow HTTPS from anywhere"
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -51,6 +59,19 @@ resource "aws_security_group" "alb_sg" {
 }
 
 ############################################
+# Web Security Group (for Compute instances)
+############################################
+module "security" {
+  source = "./modules/Security"
+  
+  environment          = var.environment
+  vpc_id               = module.vpc.vpc_id
+  alb_security_group_id = aws_security_group.alb_sg.id
+  my_trusted_ip        = var.my_trusted_ip
+  tags                 = var.tags
+}
+
+############################################
 # ALB Module
 ############################################
 module "alb" {
@@ -58,9 +79,10 @@ module "alb" {
   environment        = var.environment
   vpc_id             = module.vpc.vpc_id
   subnet_ids         = module.vpc.public_subnet_ids
-  security_group_ids = [aws_security_group.alb_sg.id]
   tags               = var.tags
+  acm_certificate_arn = var.acm_certificate_arn  
 }
+
 
 ############################################
 # Compute Module (EC2 / ASG)
@@ -77,6 +99,8 @@ module "compute" {
   vpc_id               = module.vpc.vpc_id
 
   alb_target_group_arn = module.alb.target_group_arn
+  alb_security_group_id = aws_security_group.alb_sg.id
+
   user_data            = file("./scripts/user_data.sh")
 
   desired_capacity     = 1
@@ -97,7 +121,6 @@ resource "aws_key_pair" "generated_key" {
   public_key = tls_private_key.example.public_key_openssh
 }
 
-# Save private key locally with restricted permissions
 resource "local_file" "private_key" {
   content         = tls_private_key.example.private_key_pem
   filename        = "${path.module}/my-generated-key.pem"

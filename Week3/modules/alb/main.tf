@@ -1,13 +1,43 @@
+resource "aws_security_group" "alb_sg" {
+  name        = "${var.environment}-alb-sg"
+  description = "Allow HTTP and HTTPS traffic to ALB"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    description = "Allow HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Allow HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = var.tags
+}
+
 resource "aws_lb" "this" {
   name               = "${var.environment}-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = var.security_group_ids
+  security_groups    = [aws_security_group.alb_sg.id]
   subnets            = var.subnet_ids
 
-  tags = merge(var.tags, {
-    Name = "${var.environment}-alb"
-  })
+  tags = var.tags
 }
 
 resource "aws_lb_target_group" "this" {
@@ -27,9 +57,7 @@ resource "aws_lb_target_group" "this" {
     unhealthy_threshold = 2
   }
 
-  tags = merge(var.tags, {
-    Name = "${var.environment}-tg"
-  })
+  tags = var.tags
 }
 
 resource "aws_lb_listener" "http" {

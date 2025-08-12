@@ -1,31 +1,25 @@
-variable "environment" {
-  description = "Deployment environment (e.g., dev, prod)"
-  type        = string
-}
-
 variable "vpc_id" {
-  description = "VPC ID"
   type        = string
+  description = "VPC ID where ALB is deployed"
 }
 
 variable "subnet_ids" {
-  description = "List of subnet IDs for the ALB"
   type        = list(string)
+  description = "List of subnet IDs for ALB"
 }
 
-variable "security_group_ids" {
-  description = "List of security group IDs for the ALB"
-  type        = list(string)
-}
-
-variable "acm_certificate_arn" {
-  description = "ACM Certificate ARN for HTTPS listener. Leave empty to disable HTTPS"
+variable "environment" {
   type        = string
-  default     = ""
+  description = "Deployment environment name"
 }
 
 variable "tags" {
-  description = "Tags to apply"
   type        = map(string)
   default     = {}
+}
+
+variable "acm_certificate_arn" {
+  type        = string
+  description = "ACM Certificate ARN for HTTPS listener"
+  default     = ""
 }

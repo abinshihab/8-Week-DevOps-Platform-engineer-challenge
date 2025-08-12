@@ -84,6 +84,3 @@ variable "target_group_arn" {
   type        = string
   default     = null # Optional: Makes it optional if you're not always using it
 }
-
-
-
