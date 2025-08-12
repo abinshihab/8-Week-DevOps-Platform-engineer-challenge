@@ -1,19 +1,25 @@
 output "vpc_id" {
-  value = aws_vpc.main.id
+  description = "The ID of the VPC"
+  value       = aws_vpc.main.id
 }
 
 output "public_subnet_ids" {
-  value = [for subnet in aws_subnet.public : subnet.id]
+  description = "IDs of the public subnets"
+  value       = aws_subnet.public[*].id
 }
 
 output "private_subnet_ids" {
-  value = [for subnet in aws_subnet.private : subnet.id]
+  description = "IDs of the private subnets"
+  value       = aws_subnet.private[*].id
 }
 
 output "igw_id" {
-  value = aws_internet_gateway.igw.id
+  description = "The ID of the Internet Gateway"
+  value       = aws_internet_gateway.igw.id
 }
-output "security_group_ids" {
-  description = "List of security group IDs created by VPC module"
-  value       = [aws_security_group.vpc_default_sg.id]
+
+output "nat_gateway_ids" {
+  description = "The IDs of the NAT Gateways (if created)"
+  value       = aws_nat_gateway.nat[*].id
+  depends_on  = [aws_nat_gateway.nat]
 }

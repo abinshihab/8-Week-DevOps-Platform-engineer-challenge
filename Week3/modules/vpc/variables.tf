@@ -1,41 +1,63 @@
-variable "aws_region" {}
-variable "environment" {}
-variable "vpc_cidr" {}
-variable "name" {
-  description = "Name prefix for resources"
+variable "aws_region" {
+  description = "AWS region to deploy resources"
+  type        = string
+}
+
+variable "environment" {
+  description = "Deployment environment (e.g., dev, prod)"
+  type        = string
+}
+
+variable "project" {
+  description = "Project name prefix for naming resources"
+  type        = string
+}
+
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC"
   type        = string
 }
 
 variable "public_subnet_cidrs" {
-  type = list(string)
+  description = "List of CIDR blocks for public subnets"
+  type        = list(string)
 }
 
 variable "private_subnet_cidrs" {
-  type = list(string)
+  description = "List of CIDR blocks for private subnets"
+  type        = list(string)
 }
 
 variable "availability_zones" {
-  type = list(string)
+  description = "List of availability zones to use"
+  type        = list(string)
 }
 
+
 variable "enable_dns_support" {
-  type = bool
+  description = "Enable DNS support in the VPC"
+  type        = bool
 }
 
 variable "enable_dns_hostnames" {
-  type = bool
+  description = "Enable DNS hostnames in the VPC"
+  type        = bool
+}
+
+
+variable "user_data" {
+  description = "User data script to run on EC2 instance launch"
+  type        = string
+  default     = ""
+}
+variable "enable_nat_gateway" {
+  description = "Set to true to create NAT Gateway for private subnets"
+  type        = bool
+  default     = false
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
-}
-variable "user_data" {
-  description = "User data to run on EC2 instance launch"
-  type        = string
-}
-variable "enable_nat_gateway" {
-  description = "Whether to enable a NAT Gateway"
-  type        = bool
-  default     = true
+  description = "A map of tags to add to resources"
+  type        = map(string)
+  default     = {}
 }

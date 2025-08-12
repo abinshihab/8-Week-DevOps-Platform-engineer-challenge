@@ -1,23 +1,31 @@
+############################################
+# Provider
+############################################
 provider "aws" {
   region = var.aws_region
 }
 
+############################################
 # VPC Module
+############################################
 module "vpc" {
-  source                = "./modules/vpc"
-  aws_region            = var.aws_region
-  name                  = var.name
-  environment           = var.environment
-  vpc_cidr              = var.vpc_cidr
-  public_subnet_cidrs   = var.public_subnet_cidrs
-  private_subnet_cidrs  = var.private_subnet_cidrs
-  availability_zones    = var.availability_zones
-  enable_dns_hostnames  = true
-  enable_dns_support    = true
-  tags                  = var.tags
-  user_data = file("./scripts/user_data.sh")
+  source               = "./modules/vpc"
+  aws_region           = var.aws_region
+  project              = var.name
+  environment          = var.environment
+  vpc_cidr             = var.vpc_cidr
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+  availability_zones   = var.availability_zones
+  enable_dns_hostnames = var.enable_dns_hostnames
+  enable_dns_support   = var.enable_dns_support
+  enable_nat_gateway   = var.enable_nat_gateway
+  tags                 = var.tags
 }
-# ALB Security Group (public access on port 80)
+
+############################################
+# ALB Security Group
+############################################
 resource "aws_security_group" "alb_sg" {
   name        = "${var.environment}-alb-sg"
   description = "Allow HTTP traffic to ALB"
@@ -42,7 +50,9 @@ resource "aws_security_group" "alb_sg" {
   tags = var.tags
 }
 
+############################################
 # ALB Module
+############################################
 module "alb" {
   source             = "./modules/alb"
   environment        = var.environment
@@ -52,18 +62,19 @@ module "alb" {
   tags               = var.tags
 }
 
-# Compute Module (EC2/ASG)
-
+############################################
+# Compute Module (EC2 / ASG)
+############################################
 module "compute" {
-  source              = "./modules/compute"
-  ami_id              = var.ami_id
-  instance_type       = var.instance_type
-  key_name            = var.key_name
-  subnet_ids          = module.vpc.private_subnet_ids
-  environment         = var.environment
-  tags                = var.tags
-  name                = var.name
-  vpc_id              = module.vpc.vpc_id
+  source               = "./modules/compute"
+  ami_id               = var.ami_id
+  instance_type        = var.instance_type
+  key_name             = var.key_name
+  subnet_ids           = module.vpc.private_subnet_ids
+  environment          = var.environment
+  tags                 = var.tags
+  name                 = var.name
+  vpc_id               = module.vpc.vpc_id
 
   alb_target_group_arn = module.alb.target_group_arn
   user_data            = file("./scripts/user_data.sh")
@@ -71,4 +82,24 @@ module "compute" {
   desired_capacity     = 1
   min_size             = 1
   max_size             = 2
+}
+
+############################################
+# SSH Key Pair
+############################################
+resource "tls_private_key" "example" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+resource "aws_key_pair" "generated_key" {
+  key_name   = "my-generated-key"
+  public_key = tls_private_key.example.public_key_openssh
+}
+
+# Save private key locally with restricted permissions
+resource "local_file" "private_key" {
+  content         = tls_private_key.example.private_key_pem
+  filename        = "${path.module}/my-generated-key.pem"
+  file_permission = "0400"
 }
