@@ -109,6 +109,21 @@ module "compute" {
 }
 
 ############################################
+# Bastion Host Module
+############################################
+
+module "bastion_host" {
+  source           = "./modules/bastion_host"
+  name             = "dev"
+  ami_id           = "ami-0abcdef1234567890" # Amazon Linux 2
+  instance_type    = "t3.micro"
+  subnet_id        = module.vpc.public_subnet_ids[0]
+  vpc_id           = module.vpc.vpc_id
+  allowed_ssh_cidr = var.allowed_ssh_cidr # Replace with your IP
+  key_name         = "bastion-key"
+}
+
+############################################
 # SSH Key Pair
 ############################################
 resource "tls_private_key" "example" {

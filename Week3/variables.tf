@@ -118,3 +118,7 @@ variable "acm_certificate_arn" {
   type        = string
   default     = ""
 }
+variable "allowed_ssh_cidr" {
+  description = "CIDR block allowed to SSH into the bastion"
+  type        = string
+}
