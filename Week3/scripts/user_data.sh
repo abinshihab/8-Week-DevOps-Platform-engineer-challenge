@@ -1,12 +1,18 @@
 #!/bin/bash
-echo "User data script started at $(date)" >> /var/log/user-data.log
+exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+echo "User data script started at $(date)"
 
-yum update -y
-
-# Install Apache HTTP Server
+# Install Apache
 yum install -y httpd
-mkdir -p /var/www/html
+
+# Create a simple HTML page
 echo "Welcome to My 8 Weeks Challenge Page" > /var/www/html/index.html
-echo "Created simple HTML file with OK message at $(date)" >> /var/log/user-data.log
+
+# Ensure Apache listens on all interfaces
+echo "Listen 0.0.0.0:80" > /etc/httpd/conf.d/listen.conf
+
+# Enable and start Apache
 systemctl enable httpd
 systemctl start httpd
+systemctl status httpd --no-pager
+echo "User data script completed at $(date)"

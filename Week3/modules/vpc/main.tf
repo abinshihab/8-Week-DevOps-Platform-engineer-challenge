@@ -1,30 +1,25 @@
-############################################
-# VPC with Public + Private Subnets + NAT
-############################################
-
-# Create the VPC
+########################
+# VPC
+########################
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
-  enable_dns_support   = var.enable_dns_support
-  enable_dns_hostnames = var.enable_dns_hostnames
+  enable_dns_support   = true
+  enable_dns_hostnames = true
 
-  tags = merge(
-    var.tags,
-    { Name = "${var.project}-vpc" }
-  )
+  tags = merge(var.tags, { Name = "${var.project}-vpc" })
 }
 
-# Internet Gateway for Public Subnets
+########################
+# Internet Gateway
+########################
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
-
-  tags = merge(
-    var.tags,
-    { Name = "${var.project}-igw" }
-  )
+  tags   = merge(var.tags, { Name = "${var.project}-igw" })
 }
 
+########################
 # Public Subnets
+########################
 resource "aws_subnet" "public" {
   count                   = length(var.public_subnet_cidrs)
   vpc_id                  = aws_vpc.main.id
@@ -32,16 +27,12 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
   availability_zone       = element(var.availability_zones, count.index)
 
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.project}-public-${count.index + 1}"
-      Tier = "public"
-    }
-  )
+  tags = merge(var.tags, { Name = "${var.project}-public-${count.index+1}", Tier="public" })
 }
 
+########################
 # Private Subnets
+########################
 resource "aws_subnet" "private" {
   count                   = length(var.private_subnet_cidrs)
   vpc_id                  = aws_vpc.main.id
@@ -49,78 +40,58 @@ resource "aws_subnet" "private" {
   map_public_ip_on_launch = false
   availability_zone       = element(var.availability_zones, count.index)
 
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.project}-private-${count.index + 1}"
-      Tier = "private"
-    }
-  )
+  tags = merge(var.tags, { Name = "${var.project}-private-${count.index+1}", Tier="private" })
 }
 
-# Elastic IP for NAT Gateway(s)
+########################
+# Elastic IPs for NAT
+########################
 resource "aws_eip" "nat" {
-  count = var.enable_nat_gateway ? length(var.public_subnet_cidrs) : 0
-
-  tags = merge(
-    var.tags,
-    { Name = "${var.project}-nat-eip-${count.index + 1}" }
-  )
+  count = length(var.public_subnet_cidrs)
+  tags  = merge(var.tags, { Name = "${var.project}-nat-eip-${count.index+1}" })
 }
 
-# NAT Gateway(s)
+########################
+# NAT Gateways
+########################
 resource "aws_nat_gateway" "nat" {
-  count         = var.enable_nat_gateway ? length(var.public_subnet_cidrs) : 0
+  count         = length(var.public_subnet_cidrs)
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
-
-  tags = merge(
-    var.tags,
-    { Name = "${var.project}-nat-${count.index + 1}" }
-  )
-
-  depends_on = [aws_internet_gateway.igw]
+  depends_on    = [aws_internet_gateway.igw]
+  tags          = merge(var.tags, { Name = "${var.project}-nat-${count.index+1}" })
 }
 
+########################
 # Public Route Table
+########################
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
-
-  tags = merge(
-    var.tags,
-    { Name = "${var.project}-public-rt" }
-  )
+  tags   = merge(var.tags, { Name = "${var.project}-public-rt" })
 }
 
-# Public Route - IGW
-resource "aws_route" "public_internet_access" {
+resource "aws_route" "public_internet" {
   route_table_id         = aws_route_table.public.id
   destination_cidr_block = "0.0.0.0/0"
   gateway_id             = aws_internet_gateway.igw.id
 }
 
-resource "aws_route_table_association" "public_assoc" {
-  count          = length(aws_subnet.public)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
 
+
+########################
 # Private Route Tables
+########################
 resource "aws_route_table" "private" {
-  count  = length(var.private_subnet_cidrs)
+  count  = length(aws_subnet.private)
   vpc_id = aws_vpc.main.id
-
-  tags = merge(
-    var.tags,
-    { Name = "${var.project}-private-rt-${count.index + 1}" }
-  )
+  tags   = merge(var.tags, { Name = "${var.project}-private-rt-${count.index+1}" })
 }
 
-resource "aws_route" "private_nat_gateway" {
-  count                  = var.enable_nat_gateway ? length(var.private_subnet_cidrs) : 0
+resource "aws_route" "private_nat" {
+  count                  = length(aws_subnet.private)
   route_table_id         = aws_route_table.private[count.index].id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat[count.index].id
+  nat_gateway_id         = element(aws_nat_gateway.nat.*.id, count.index % length(aws_nat_gateway.nat))
 }
 
 resource "aws_route_table_association" "private_assoc" {

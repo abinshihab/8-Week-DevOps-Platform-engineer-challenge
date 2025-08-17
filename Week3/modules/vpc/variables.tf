@@ -61,3 +61,5 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+variable "bastion_security_group_id" {}
+

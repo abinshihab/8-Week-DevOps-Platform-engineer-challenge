@@ -1,26 +1,22 @@
-variable "alb_security_group_id" {
-  description = "Security group ID of the ALB"
-  type        = string
-}
-
 resource "aws_security_group" "ec2_sg" {
   name        = "${var.environment}-ec2-sg"
   description = "Allow inbound access"
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "Allow SSH"
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    cidr_blocks     = var.ssh_cidr_blocks
+    description = "Allow SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = var.ssh_cidr_blocks
   }
 
   ingress {
-    description     = "Allow HTTP from ALB only"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
+    description = "Allow HTTP from ALB only"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    # 🔑 FIX: Only allow ALB SG, not 0.0.0.0/0
     security_groups = [var.alb_security_group_id]
   }
 
@@ -46,8 +42,11 @@ resource "aws_launch_template" "this" {
 
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
 
-  tags = {
-    Name = "${var.environment}-lt"
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "${var.environment}-lt"
+    }
   }
 }
 
@@ -76,3 +75,4 @@ resource "aws_autoscaling_group" "this" {
 locals {
   user_data_base64 = base64encode(var.user_data)
 }
+

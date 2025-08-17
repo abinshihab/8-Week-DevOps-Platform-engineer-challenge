@@ -1,25 +1,31 @@
 variable "environment" {
-  description = "Deployment environment (e.g., dev, prod)"
+  description = "Environment name (dev, prod, etc.)"
   type        = string
 }
 
 variable "vpc_id" {
-  description = "VPC ID where the security groups will be created"
+  description = "VPC ID where SG will be created"
   type        = string
 }
 
 variable "alb_security_group_id" {
-  description = "Security group ID for the ALB"
+  description = "Security Group ID of the ALB"
+  type        = string
+}
+
+variable "bastion_security_group_id" {
+  description = "Security Group ID of the Bastion host"
   type        = string
 }
 
 variable "my_trusted_ip" {
-  description = "Your trusted IP address with CIDR (e.g., 203.0.113.10/32)"
+  description = "Trusted public IP for optional direct SSH access"
   type        = string
+  default     = null
 }
 
 variable "tags" {
-  description = "Tags to apply to resources"
+  description = "Map of tags to apply"
   type        = map(string)
   default     = {}
 }

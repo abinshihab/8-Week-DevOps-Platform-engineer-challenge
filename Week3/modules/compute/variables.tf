@@ -84,3 +84,10 @@ variable "target_group_arn" {
   type        = string
   default     = null # Optional: Makes it optional if you're not always using it
 }
+variable "alb_security_group_id" {
+  description = "Security group ID of the ALB"
+  type        = string
+}
+
+
+

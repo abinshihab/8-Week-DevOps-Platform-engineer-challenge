@@ -3,6 +3,7 @@
 ############################################
 provider "aws" {
   region = var.aws_region
+  profile = "default"
 }
 
 ############################################
@@ -20,6 +21,7 @@ module "vpc" {
   enable_dns_hostnames = var.enable_dns_hostnames
   enable_dns_support   = var.enable_dns_support
   enable_nat_gateway   = var.enable_nat_gateway
+  bastion_security_group_id = module.bastion_host.bastion_sg_id
   tags                 = var.tags
 }
 
@@ -67,6 +69,7 @@ module "security" {
   vpc_id               = module.vpc.vpc_id
   alb_security_group_id = aws_security_group.alb_sg.id
   my_trusted_ip        = var.my_trusted_ip
+    bastion_security_group_id = module.bastion_host.bastion_sg_id
   tags                 = var.tags
 }
 
@@ -82,6 +85,30 @@ module "alb" {
   acm_certificate_arn = var.acm_certificate_arn  
 }
 
+############################################
+# Create a pulbic route table for the ALB
+############################################
+
+resource "aws_route_table" "alb_public_rt" {
+  vpc_id = module.vpc.vpc_id
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-alb-public-rt"
+  })
+}
+
+# Add a route to the Internet Gateway
+resource "aws_route" "alb_public_route" {
+  route_table_id         = aws_route_table.alb_public_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = module.vpc.igw_id
+}
+
+resource "aws_route_table_association" "alb_subnet_assoc" {
+  count          = length(module.vpc.public_subnet_ids)
+  subnet_id      = module.vpc.public_subnet_ids[count.index]
+  route_table_id = aws_route_table.alb_public_rt.id
+}
 
 ############################################
 # Compute Module (EC2 / ASG)
@@ -98,7 +125,7 @@ module "compute" {
   vpc_id               = module.vpc.vpc_id
 
   alb_target_group_arn = module.alb.target_group_arn
-  alb_security_group_id = aws_security_group.alb_sg.id
+  alb_security_group_id  = aws_security_group.alb_sg.id
 
   user_data            = file("./scripts/user_data.sh")
 
@@ -114,7 +141,7 @@ module "compute" {
 module "bastion_host" {
   source           = "./modules/bastion_host"
   name             = "dev"
-  ami_id           = "ami-0abcdef1234567890" # Amazon Linux 2
+  ami_id           = var.ami_id # Amazon Linux 2
   instance_type    = "t3.micro"
   subnet_id        = module.vpc.public_subnet_ids[0]
   vpc_id           = module.vpc.vpc_id
