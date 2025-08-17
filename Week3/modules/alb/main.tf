@@ -52,7 +52,7 @@ resource "aws_lb_target_group" "this" {
     protocol            = "HTTP"
     matcher             = "200"
     interval            = 60
-    timeout             = 50
+    timeout             = 20
     healthy_threshold   = 2
     unhealthy_threshold = 2
   }

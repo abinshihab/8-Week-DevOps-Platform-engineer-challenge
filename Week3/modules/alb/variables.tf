@@ -17,6 +17,12 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+variable "alb_sg_id" {
+  description = "Security group ID for the ALB"
+  type        = string
+}
+
+
 
 variable "acm_certificate_arn" {
   type        = string
