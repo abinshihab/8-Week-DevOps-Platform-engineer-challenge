@@ -99,7 +99,6 @@ resource "aws_route" "public_internet_access" {
   gateway_id             = aws_internet_gateway.igw.id
 }
 
-# Associate Public Subnets with Public RT
 resource "aws_route_table_association" "public_assoc" {
   count          = length(aws_subnet.public)
   subnet_id      = aws_subnet.public[count.index].id
@@ -117,7 +116,6 @@ resource "aws_route_table" "private" {
   )
 }
 
-# Private Routes via NAT
 resource "aws_route" "private_nat_gateway" {
   count                  = var.enable_nat_gateway ? length(var.private_subnet_cidrs) : 0
   route_table_id         = aws_route_table.private[count.index].id
@@ -125,7 +123,6 @@ resource "aws_route" "private_nat_gateway" {
   nat_gateway_id         = aws_nat_gateway.nat[count.index].id
 }
 
-# Associate Private Subnets with Private RTs
 resource "aws_route_table_association" "private_assoc" {
   count          = length(aws_subnet.private)
   subnet_id      = aws_subnet.private[count.index].id

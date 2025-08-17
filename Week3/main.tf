@@ -63,7 +63,6 @@ resource "aws_security_group" "alb_sg" {
 ############################################
 module "security" {
   source = "./modules/Security"
-  
   environment          = var.environment
   vpc_id               = module.vpc.vpc_id
   alb_security_group_id = aws_security_group.alb_sg.id
