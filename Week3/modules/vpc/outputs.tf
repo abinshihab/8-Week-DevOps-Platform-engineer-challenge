@@ -1,15 +1,19 @@
+# ===========================
+# VPC Outputs
+# ===========================
+
 output "vpc_id" {
   description = "The ID of the VPC"
   value       = aws_vpc.main.id
 }
 
 output "public_subnet_ids" {
-  description = "IDs of the public subnets"
+  description = "List of IDs of the public subnets"
   value       = aws_subnet.public[*].id
 }
 
 output "private_subnet_ids" {
-  description = "IDs of the private subnets"
+  description = "List of IDs of the private subnets"
   value       = aws_subnet.private[*].id
 }
 
@@ -19,7 +23,6 @@ output "igw_id" {
 }
 
 output "nat_gateway_ids" {
-  description = "The IDs of the NAT Gateways (if created)"
-  value       = aws_nat_gateway.nat[*].id
-  depends_on  = [aws_nat_gateway.nat]
+  description = "List of IDs of the NAT Gateways (if created)"
+  value       = var.enable_nat_gateway ? aws_nat_gateway.nat[*].id : []
 }
