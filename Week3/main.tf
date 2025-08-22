@@ -103,13 +103,9 @@ resource "aws_route_table" "alb_public_rt" {
 resource "aws_route" "alb_public_route" {
   route_table_id         = aws_route_table.alb_public_rt.id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = module.vpc.internet_gateway_id
+  gateway_id             = module.vpc.igw_id
 }
-resource "aws_route_table_association" "alb_subnet_assoc" {
-  count          = length(module.vpc.public_subnet_ids)
-  subnet_id      = module.vpc.public_subnet_ids[count.index]
-  route_table_id = aws_route_table.alb_public_rt.id
-}
+
 
 ############################################
 # Compute Module (EC2 / ASG)

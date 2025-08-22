@@ -1,6 +1,9 @@
+########################
+# Security Group for EC2
+########################
 resource "aws_security_group" "ec2_sg" {
   name        = "${var.environment}-ec2-sg"
-  description = "Allow inbound access"
+  description = "Allow inbound access to EC2 instances"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -12,16 +15,15 @@ resource "aws_security_group" "ec2_sg" {
   }
 
   ingress {
-    description = "Allow HTTP from ALB only"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    # 🔑 FIX: Only allow ALB SG, not 0.0.0.0/0
+    description     = "Allow HTTP from ALB only"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
     security_groups = [var.alb_security_group_id]
   }
 
   egress {
-    description = "Allow all outbound"
+    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -33,6 +35,9 @@ resource "aws_security_group" "ec2_sg" {
   })
 }
 
+########################
+# Launch Template for EC2
+########################
 resource "aws_launch_template" "this" {
   name_prefix   = "${var.environment}-lt-"
   image_id      = var.ami_id
@@ -50,14 +55,17 @@ resource "aws_launch_template" "this" {
   }
 }
 
+########################
+# Auto Scaling Group (ASG)
+########################
 resource "aws_autoscaling_group" "this" {
-  name                      = "${var.environment}-asg"
-  desired_capacity          = var.desired_capacity
-  max_size                  = var.max_size
-  min_size                  = var.min_size
-  vpc_zone_identifier       = var.subnet_ids
-  health_check_type         = "ELB"
-  target_group_arns         = [var.alb_target_group_arn]
+  name                = "${var.environment}-asg"
+  desired_capacity    = var.desired_capacity
+  max_size            = var.max_size
+  min_size            = var.min_size
+  vpc_zone_identifier = var.subnet_ids
+  health_check_type   = "ELB"
+  target_group_arns   = [var.alb_target_group_arn]
   health_check_grace_period = 300
 
   launch_template {
@@ -72,7 +80,14 @@ resource "aws_autoscaling_group" "this" {
   }
 }
 
+########################
+# Local variable: encode user data
+########################
 locals {
   user_data_base64 = base64encode(var.user_data)
 }
 
+output "asg_name" {
+  description = "Name of the Auto Scaling Group"
+  value       = aws_autoscaling_group.this.name
+}

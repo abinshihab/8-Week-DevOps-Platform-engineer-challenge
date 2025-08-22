@@ -1,40 +1,13 @@
-resource "aws_security_group" "alb_sg" {
-  name        = "${var.environment}-alb-sg-2"
-  description = "Allow HTTP and HTTPS traffic to ALB"
-  vpc_id      = var.vpc_id
+#########################
+# ALB Security Group
+#########################
 
-  ingress {
-    description = "Allow HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Allow HTTPS"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = var.tags
-}
 
 resource "aws_lb" "this" {
   name               = "${var.environment}-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_sg.id]
+  security_groups    = [var.alb_sg_id]
   subnets            = var.subnet_ids
 
   tags = var.tags
