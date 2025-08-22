@@ -76,8 +76,6 @@ resource "aws_route" "public_internet" {
   gateway_id             = aws_internet_gateway.igw.id
 }
 
-
-
 ########################
 # Private Route Tables
 ########################
@@ -100,8 +98,4 @@ resource "aws_route_table_association" "private_assoc" {
   route_table_id = aws_route_table.private[count.index].id
 }
 
-resource "aws_route_table_association" "public_assoc" {
-  count          = length(aws_subnet.public)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
 }
