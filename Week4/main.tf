@@ -124,7 +124,6 @@ module "compute" {
   min_size              = 1
   max_size              = 2
   alb_target_group_arn  = module.alb.target_group_arn
-  alb_security_group_id = aws_security_group.alb_sg.id
   user_data             = file("./scripts/user_data.sh")
 }
 
