@@ -22,6 +22,14 @@ resource "aws_security_group" "web_sg" {
     protocol        = "tcp"
     security_groups = [var.bastion_security_group_id]
   }
+  ingress {
+    description = "Allow ICMP (ping) from VPC"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = [var.vpc_cidr_block]  
+  }
+
 
   # Optional ingress rule: Allow SSH from your trusted IP
   # Uses dynamic block to include only if variable is not null

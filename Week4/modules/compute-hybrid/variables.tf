@@ -1,16 +1,22 @@
 variable "compute_mode" {
+  description = "Compute mode: 'ec2' or 'asg'"
   type        = string
-  description = "EC2 or ASG"
+  default     = "ec2"
 }
 
-variable "subnet_ids" {
-  type        = list(string)
-  description = "Subnets for compute instances or ASG"
+variable "environment" {
+  type        = string
+  description = "Environment name (dev/prod)"
+}
+
+variable "name" {
+  type        = string
+  description = "Name of the compute resource"
 }
 
 variable "ami_id" {
   type        = string
-  description = "AMI ID to use for instances"
+  description = "AMI ID for the instance"
 }
 
 variable "instance_type" {
@@ -20,53 +26,45 @@ variable "instance_type" {
 
 variable "key_name" {
   type        = string
-  description = "SSH key name for instances"
+  description = "Key pair name for SSH access"
+}
+
+variable "subnet_ids" {
+  type        = list(string)
+  description = "List of subnet IDs"
 }
 
 variable "security_group_id" {
   type        = string
-  description = "Security group ID for compute instances"
+  description = "Security Group ID for EC2/ASG instances"
 }
 
-variable "environment" {
+variable "alb_target_group_arn" {
   type        = string
-  description = "Environment name (dev, prod, etc.)"
+  description = "ALB target group ARN to attach instances/ASG"
 }
 
-variable "name" {
-  type        = string
-  description = "Project name or instance prefix"
-}
-variable "user_data" {
-  description = "User data script for EC2 / ASG instances"
-  type        = string
-  default     = ""
-}
-variable "tags" {
-  description = "Tags to apply to resources"
-  type        = map(string)
-  default     = {}
-}
 variable "desired_capacity" {
-  description = "Desired capacity of the Auto Scaling Group"
   type        = number
   default     = 1
 }
+
 variable "min_size" {
-  description = "Minimum size of the Auto Scaling Group"
   type        = number
   default     = 1
 }
 
 variable "max_size" {
-  description = "Maximum size of the Auto Scaling Group"
-  type        = number
+  type        = number 
   default     = 2
 }
-variable "alb_target_group_arn" {
-  description = "ARN of the ALB target group to attach EC2 or ASG instances"
+
+variable "user_data" {
   type        = string
-  default     = ""   # Optional: can leave empty if you want to attach later
+  default     = ""
 }
 
-
+variable "tags" {
+  type        = map(string)
+  default     = {}
+}

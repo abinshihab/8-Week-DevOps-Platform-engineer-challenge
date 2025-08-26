@@ -21,6 +21,13 @@ resource "aws_security_group" "ec2_sg" {
     protocol        = "tcp"
     security_groups = [var.alb_security_group_id]
   }
+ingress {
+    description = "Allow ICMP (ping) from VPC"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = [var.vpc_cidr_block]  
+  }
 
   egress {
     description = "Allow all outbound traffic"

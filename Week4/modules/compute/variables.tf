@@ -89,5 +89,7 @@ variable "alb_security_group_id" {
   type        = string
 }
 
-
-
+variable "vpc_cidr_block" {
+  description = "CIDR block of the VPC for internal traffic"
+  type        = string
+}

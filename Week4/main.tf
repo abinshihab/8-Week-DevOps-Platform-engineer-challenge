@@ -70,6 +70,7 @@ module "security" {
   alb_security_group_id = aws_security_group.alb_sg.id
   my_trusted_ip        = var.my_trusted_ip
     bastion_security_group_id = module.bastion_host.bastion_sg_id
+    vpc_cidr_block       = module.vpc.vpc_cidr
   tags                 = var.tags
 }
 
