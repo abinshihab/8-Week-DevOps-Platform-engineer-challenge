@@ -64,7 +64,6 @@ resource "aws_autoscaling_group" "this" {
     version = "$Latest"
   }
 
-  # Attach ALB/NLB target group
   target_group_arns = [var.alb_target_group_arn]
 
   tag {
@@ -81,4 +80,55 @@ resource "aws_autoscaling_group" "this" {
       propagate_at_launch = true
     }
   }
+}
+
+# -----------------------
+# ASG Scaling Policies
+# -----------------------
+resource "aws_autoscaling_policy" "cpu_scale_target" {
+  count                  = var.compute_mode == "asg" ? 1 : 0
+  name                   = "${var.environment}-${var.name}-cpu-scaling"
+  policy_type            = "TargetTrackingScaling"
+  autoscaling_group_name = aws_autoscaling_group.this[0].name
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 60
+  }
+}
+
+resource "aws_autoscaling_policy" "request_scale_target" {
+  count = (var.compute_mode == "asg" && var.enable_request_based_scaling) ? 1 : 0
+  name  = "${var.environment}-${var.name}-req-scaling"
+  policy_type            = "TargetTrackingScaling"
+  autoscaling_group_name = aws_autoscaling_group.this[0].name
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ALBRequestCountPerTarget"
+      resource_label         = "${var.alb_arn_suffix}/${var.alb_target_group_arn_suffix}"
+    }
+    target_value = 100
+  }
+}
+
+# Classic CPU-based scale-out/in
+resource "aws_autoscaling_policy" "scale_out_cpu" {
+  count                  = var.compute_mode == "asg" ? 1 : 0
+  name                   = "${var.environment}-cpu-scale-out"
+  adjustment_type         = "ChangeInCapacity"
+  scaling_adjustment      = 1
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.this[0].name
+}
+
+resource "aws_autoscaling_policy" "scale_in_cpu" {
+  count                  = var.compute_mode == "asg" ? 1 : 0
+  name                   = "${var.environment}-cpu-scale-in"
+  adjustment_type         = "ChangeInCapacity"
+  scaling_adjustment      = -1
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.this[0].name
 }
