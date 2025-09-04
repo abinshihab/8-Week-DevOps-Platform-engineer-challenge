@@ -29,4 +29,14 @@ output "target_group_name" {
   description = "The name of the ALB Target Group"
   value       = aws_lb_target_group.this.name
 }
+# ALB ARN suffix (for request-based scaling policies)
+output "alb_arn_suffix" {
+  description = "ARN suffix of the ALB"
+  value       = aws_lb.this.arn_suffix
+}
 
+# Target Group ARN suffix
+output "target_group_arn_suffix" {
+  description = "ARN suffix of the default Target Group"
+  value       = aws_lb_target_group.this.arn_suffix
+}

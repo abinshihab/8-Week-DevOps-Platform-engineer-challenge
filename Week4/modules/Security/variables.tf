@@ -33,3 +33,12 @@ variable "vpc_cidr_block" {
   description = "CIDR block of the VPC for internal traffic"
   type        = string
 }
+variable "bastion_public_ip" {
+  description = "Bastion public IP to allow SSH/HTTP if no manual trusted IP is set"
+  type        = string
+  default     = null
+}
+variable "bastion_private_ip" {
+  description = "Private IP of the Bastion host for SSH access"
+  type        = string
+}

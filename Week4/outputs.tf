@@ -33,7 +33,7 @@ output "alb_target_group_arn" {
 
 
 # Auto Scaling Group output
-output "asg_name" {
+output "asg_names" {
   description = "Name of the Auto Scaling Group"
-  value       = module.compute.asg_name
+  value       = module.compute.asg_names
 }

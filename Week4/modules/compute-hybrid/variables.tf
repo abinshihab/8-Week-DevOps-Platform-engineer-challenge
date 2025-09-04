@@ -68,3 +68,17 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+variable "enable_request_based_scaling" {
+  type    = bool
+  default = false
+}
+
+variable "alb_arn_suffix" {
+  type    = string
+  default = null
+}
+
+variable "alb_target_group_arn_suffix" {
+  type    = string
+  default = null
+}

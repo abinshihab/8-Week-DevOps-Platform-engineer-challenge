@@ -131,3 +131,9 @@ variable "compute_mode" {
     error_message = "compute_mode must be either 'ec2' or 'asg'"
   }
 }
+
+
+variable "enable_request_based_scaling" {
+  type    = bool
+  default = false
+}
