@@ -7,3 +7,4 @@ output "alb_sg_id" {
   description = "Security group ID for ALB (reused as needed)"
   value       = aws_security_group.web_sg.id
 }
+

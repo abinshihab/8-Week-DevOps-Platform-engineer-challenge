@@ -111,22 +111,29 @@ resource "aws_route" "alb_public_route" {
 # Compute Module (EC2 / ASG)
 ############################################
 module "compute" {
-  source                = "./modules/compute-hybrid"
-  compute_mode          = var.compute_mode
-  ami_id                = var.ami_id
-  instance_type         = var.instance_type
-  key_name              = var.key_name
-  subnet_ids            = module.vpc.private_subnet_ids
-  security_group_id     = module.security.web_sg_id
-  environment           = var.environment
-  name                  = var.name
-  tags                  = var.tags
-  desired_capacity      = 1
-  min_size              = 1
-  max_size              = 2
-  alb_target_group_arn  = module.alb.target_group_arn
-  user_data             = file("./scripts/user_data.sh")
+  source        = "./modules/compute-hybrid"
+  compute_mode  = var.compute_mode
+  environment   = var.environment
+  name          = "app"
+  ami_id        = var.ami_id
+  instance_type = var.instance_type
+  key_name      = var.key_name
+  subnet_ids    = module.vpc.private_subnet_ids
+  security_group_id = module.security.alb_sg_id
+  
+  
+
+  # ALB integration
+  alb_target_group_arn        = module.alb.target_group_arn
+  alb_arn_suffix              = module.alb.alb_arn_suffix
+  alb_target_group_arn_suffix = module.alb.target_group_arn_suffix
+
+  # Enable request-based scaling only in stage/prod
+  enable_request_based_scaling = var.environment != "dev" ? true : false
+
+  tags = var.tags
 }
+
 
 ############################################
 # Bastion Host Module

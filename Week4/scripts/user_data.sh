@@ -1,29 +1,41 @@
 #!/bin/bash
-exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-echo "User data script started at $(date)"
+# Log all output to both console and file
+sudo exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+sudo echo "User data script started at $(date)"
 
-# Update and install Apache
-yum update -y
-yum install -y httpd
+# Update system and install Apache
+sudo yum update -y
+sudo yum install -y httpd iproute
 
-# Ensure Apache listens on all interfaces (optional)
-cat <<EOL > /etc/httpd/conf.d/listen.conf
+# Force Apache to listen on port 80
+sudo bash -c 'cat <<EOL > /etc/httpd/conf.d/listen.conf
 Listen 0.0.0.0:80
-EOL
+EOL'
 
 # Create a simple HTML page
-mkdir -p /var/www/html
-echo "Welcome to My 8 Weeks Challenge Page" > /var/www/html/index.html
+sudo mkdir -p /var/www/html
+sudo bash -c 'echo "<h1>Welcome to My 8 Weeks Challenge Page</h1>" > /var/www/html/index.html'
 
-# Enable and start Apache safely
-systemctl enable httpd
-systemctl restart httpd
+# Enable and start Apache with retries
+sudo systemctl enable httpd
+for i in {1..5}; do
+  sudo systemctl restart httpd && break
+  sudo echo "Retrying Apache start..."
+  sleep 5
+done
 
-# Verify Apache is running
-if systemctl is-active --quiet httpd; then
-    echo "Apache started successfully"
+# Give Apache time to start
+sleep 10
+
+# Verify Apache service status
+if sudo systemctl is-active --quiet httpd; then
+  sudo echo "✅ Apache started successfully"
 else
-    echo "Apache failed to start, check logs in /var/log/httpd/"
+  sudo echo "❌ Apache failed to start. Check logs in /var/log/httpd/"
 fi
 
-echo "User data script completed at $(date)"
+# Verify port 80 is listening
+if sudo ss -tuln | grep -q ':80'; then
+  sudo echo "✅ Apache is listening on port 80"
+else
+  sudo echo "❌ Apache is

@@ -44,22 +44,20 @@ resource "aws_subnet" "private" {
 }
 
 ########################
-# Elastic IPs for NAT
+# NAT Gateways
 ########################
 resource "aws_eip" "nat" {
-  count = length(var.public_subnet_cidrs)
+  count = length(aws_subnet.public)
   tags  = merge(var.tags, { Name = "${var.project}-nat-eip-${count.index+1}" })
 }
 
-########################
-# NAT Gateways
-########################
 resource "aws_nat_gateway" "nat" {
-  count         = length(var.public_subnet_cidrs)
+  count         = length(aws_subnet.public)
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
   depends_on    = [aws_internet_gateway.this]
-  tags          = merge(var.tags, { Name = "${var.project}-nat-${count.index+1}" })
+
+  tags = merge(var.tags, { Name = "${var.project}-nat-${count.index+1}" })
 }
 
 ########################
@@ -70,10 +68,16 @@ resource "aws_route_table" "public" {
   tags   = merge(var.tags, { Name = "${var.project}-public-rt" })
 }
 
-resource "aws_route" "public_internet" {
+resource "aws_route" "public_default" {
   route_table_id         = aws_route_table.public.id
   destination_cidr_block = "0.0.0.0/0"
   gateway_id             = aws_internet_gateway.this.id
+}
+
+resource "aws_route_table_association" "public_assoc" {
+  count          = length(aws_subnet.public)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
 }
 
 ########################
@@ -85,20 +89,15 @@ resource "aws_route_table" "private" {
   tags   = merge(var.tags, { Name = "${var.project}-private-rt-${count.index+1}" })
 }
 
-resource "aws_route" "private_nat" {
+# Map each private subnet to a NAT in the same AZ
+resource "aws_route" "private_default" {
   count                  = length(aws_subnet.private)
   route_table_id         = aws_route_table.private[count.index].id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = element(aws_nat_gateway.nat.*.id, count.index % length(aws_nat_gateway.nat))
-}
 
-########################
-# Route Table Associations
-########################
-resource "aws_route_table_association" "public_assoc" {
-  count          = length(aws_subnet.public)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
+  nat_gateway_id = lookup({
+    for i, az in aws_subnet.public : az.availability_zone => aws_nat_gateway.nat[i].id
+  }, aws_subnet.private[count.index].availability_zone)
 }
 
 resource "aws_route_table_association" "private_assoc" {

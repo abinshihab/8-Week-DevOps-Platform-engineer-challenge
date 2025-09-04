@@ -14,14 +14,14 @@ resource "aws_instance" "this" {
   subnet_id              = var.subnet_ids[0]
   vpc_security_group_ids = [var.security_group_id]
 
-  user_data = var.user_data
+  # Load user_data as plain text (NO encoding)
+  user_data = var.user_data != "" ? var.user_data : file("${path.module}/../../scripts/user_data.sh")
 
   tags = merge(var.tags, {
     Name = "${var.environment}-${var.name}-ec2"
   })
 }
 
-# Attach EC2 instance to ALB target group (only in EC2 mode)
 resource "aws_lb_target_group_attachment" "ec2" {
   count            = var.compute_mode == "ec2" ? 1 : 0
   target_group_arn = var.alb_target_group_arn
@@ -40,7 +40,10 @@ resource "aws_launch_template" "this" {
   instance_type          = var.instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [var.security_group_id]
-  user_data = base64encode(file("${path.module}/../../scripts/user_data.sh"))
+
+  user_data = base64encode(
+    var.user_data != "" ? var.user_data : file("${path.module}/../../scripts/user_data.sh")
+  )
 
   tag_specifications {
     resource_type = "instance"
@@ -100,8 +103,8 @@ resource "aws_autoscaling_policy" "cpu_scale_target" {
 }
 
 resource "aws_autoscaling_policy" "request_scale_target" {
-  count = (var.compute_mode == "asg" && var.enable_request_based_scaling) ? 1 : 0
-  name  = "${var.environment}-${var.name}-req-scaling"
+  count                  = (var.compute_mode == "asg" && var.enable_request_based_scaling) ? 1 : 0
+  name                   = "${var.environment}-${var.name}-req-scaling"
   policy_type            = "TargetTrackingScaling"
   autoscaling_group_name = aws_autoscaling_group.this[0].name
 
@@ -114,12 +117,11 @@ resource "aws_autoscaling_policy" "request_scale_target" {
   }
 }
 
-# Classic CPU-based scale-out/in
 resource "aws_autoscaling_policy" "scale_out_cpu" {
   count                  = var.compute_mode == "asg" ? 1 : 0
   name                   = "${var.environment}-cpu-scale-out"
-  adjustment_type         = "ChangeInCapacity"
-  scaling_adjustment      = 1
+  adjustment_type        = "ChangeInCapacity"
+  scaling_adjustment     = 1
   cooldown               = 300
   autoscaling_group_name = aws_autoscaling_group.this[0].name
 }
@@ -127,8 +129,8 @@ resource "aws_autoscaling_policy" "scale_out_cpu" {
 resource "aws_autoscaling_policy" "scale_in_cpu" {
   count                  = var.compute_mode == "asg" ? 1 : 0
   name                   = "${var.environment}-cpu-scale-in"
-  adjustment_type         = "ChangeInCapacity"
-  scaling_adjustment      = -1
+  adjustment_type        = "ChangeInCapacity"
+  scaling_adjustment     = -1
   cooldown               = 300
   autoscaling_group_name = aws_autoscaling_group.this[0].name
 }
