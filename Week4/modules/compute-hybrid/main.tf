@@ -14,15 +14,14 @@ resource "aws_instance" "this" {
   subnet_id              = var.subnet_ids[0]
   vpc_security_group_ids = [var.security_group_id]
 
-  # Load user_data from variable or default script (plain text)
-  user_data = var.user_data != "" ? var.user_data : file("${path.module}/../../scripts/user_data.sh")
+  user_data = var.user_data
 
   tags = merge(var.tags, {
     Name = "${var.environment}-${var.name}-ec2"
   })
 }
 
-# Attach EC2 instance to ALB Target Group (when using EC2 mode)
+# Attach EC2 instance to ALB target group (only in EC2 mode)
 resource "aws_lb_target_group_attachment" "ec2" {
   count            = var.compute_mode == "ec2" ? 1 : 0
   target_group_arn = var.alb_target_group_arn
@@ -43,11 +42,7 @@ resource "aws_launch_template" "this" {
   instance_type          = var.instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [var.security_group_id]
-
-  # Encode user_data to Base64 for ASG usage
-  user_data = base64encode(
-    var.user_data != "" ? var.user_data : file("${path.module}/../../scripts/user_data.sh")
-  )
+  user_data = base64encode(file("${path.module}/../../scripts/user_data.sh"))
 
   tag_specifications {
     resource_type = "instance"
@@ -127,7 +122,7 @@ resource "aws_autoscaling_policy" "request_scale_target" {
   }
 }
 
-# Step Scaling Policies (CPU-based)
+# Classic CPU-based scale-out/in
 resource "aws_autoscaling_policy" "scale_out_cpu" {
   count                  = var.compute_mode == "asg" ? 1 : 0
   name                   = "${var.environment}-cpu-scale-out"

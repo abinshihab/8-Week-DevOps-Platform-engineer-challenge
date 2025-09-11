@@ -43,13 +43,12 @@ resource "aws_subnet" "private" {
   tags = merge(var.tags, { Name = "${var.project}-private-${count.index+1}", Tier = "private" })
 }
 
-############################################
-# NAT Gateways (one per public subnet)
-############################################
+########################
+# Elastic IPs for NAT
+########################
 resource "aws_eip" "nat" {
-  count = length(aws_subnet.public)
-  domain   = "vpc"
-  tags = merge(var.tags, { Name = "${var.project}-nat-eip-${count.index+1}" })
+  count = length(var.public_subnet_cidrs)
+  tags  = merge(var.tags, { Name = "${var.project}-nat-eip-${count.index+1}" })
 }
 
 resource "aws_nat_gateway" "nat" {
@@ -82,6 +81,12 @@ resource "aws_route_table_association" "public_assoc" {
   route_table_id = aws_route_table.public.id
 }
 
+resource "aws_route_table_association" "public_assoc" {
+  count          = length(aws_subnet.public)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
 ############################################
 # Private Route Tables
 ############################################
@@ -91,18 +96,20 @@ resource "aws_route_table" "private" {
   tags   = merge(var.tags, { Name = "${var.project}-private-rt-${count.index+1}" })
 }
 
-# Associate private subnets with NAT gateway in same AZ
-resource "aws_route" "private_default" {
+resource "aws_route" "private_nat" {
   count                  = length(aws_subnet.private)
   route_table_id         = aws_route_table.private[count.index].id
   destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = element(aws_nat_gateway.nat.*.id, count.index % length(aws_nat_gateway.nat))
+}
 
-  nat_gateway_id = aws_nat_gateway.nat[
-    lookup(
-      { for idx, az in aws_subnet.public : az.availability_zone => idx },
-      aws_subnet.private[count.index].availability_zone
-    )
-  ].id
+########################
+# Route Table Associations
+########################
+resource "aws_route_table_association" "public_assoc" {
+  count          = length(aws_subnet.public)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
 }
 
 resource "aws_route_table_association" "private_assoc" {
