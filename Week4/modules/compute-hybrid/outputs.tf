@@ -44,3 +44,7 @@ output "asg_info" {
   }] : []
   description = "ASG info and scaling policies (empty if EC2 mode)"
 }
+output "asg_name" {
+  description = "Name of the Auto Scaling Group"
+  value       = length(aws_autoscaling_group.this) > 0 ? aws_autoscaling_group.this[0].name : null
+}

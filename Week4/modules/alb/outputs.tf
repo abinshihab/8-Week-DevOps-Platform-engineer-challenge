@@ -40,3 +40,9 @@ output "target_group_arn_suffix" {
   description = "ARN suffix of the default Target Group"
   value       = aws_lb_target_group.this.arn_suffix
 }
+
+# ALB Target Group ARN Suffix
+output "alb_target_group_arn_suffix" {
+  description = "ARN suffix of the ALB Target Group"
+  value       = aws_lb_target_group.this.arn_suffix
+}

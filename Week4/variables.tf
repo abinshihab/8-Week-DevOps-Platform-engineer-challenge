@@ -125,7 +125,7 @@ variable "allowed_ssh_cidr" {
 variable "compute_mode" {
   description = "Compute mode for hybrid module: 'ec2' or 'asg'"
   type        = string
-  default     = "ec2"  # default mode
+  default     = "ec2" # default mode
   validation {
     condition     = contains(["ec2", "asg"], var.compute_mode)
     error_message = "compute_mode must be either 'ec2' or 'asg'"

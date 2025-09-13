@@ -1,28 +1,32 @@
 ############################################
 # Provider
 ############################################
-provider "aws" {
-  region = var.aws_region
-  profile = "default"
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 4.0"
+    }
+  }
 }
 
 ############################################
 # VPC Module
 ############################################
 module "vpc" {
-  source               = "./modules/vpc"
-  aws_region           = var.aws_region
-  project              = var.name
-  environment          = var.environment
-  vpc_cidr             = var.vpc_cidr
-  public_subnet_cidrs  = var.public_subnet_cidrs
-  private_subnet_cidrs = var.private_subnet_cidrs
-  availability_zones   = var.availability_zones
-  enable_dns_hostnames = var.enable_dns_hostnames
-  enable_dns_support   = var.enable_dns_support
-  enable_nat_gateway   = var.enable_nat_gateway
+  source                    = "./modules/vpc"
+  aws_region                = var.aws_region
+  project                   = var.name
+  environment               = var.environment
+  vpc_cidr                  = var.vpc_cidr
+  public_subnet_cidrs       = var.public_subnet_cidrs
+  private_subnet_cidrs      = var.private_subnet_cidrs
+  availability_zones        = var.availability_zones
+  enable_dns_hostnames      = var.enable_dns_hostnames
+  enable_dns_support        = var.enable_dns_support
+  enable_nat_gateway        = var.enable_nat_gateway
   bastion_security_group_id = module.bastion_host.bastion_sg_id
-  tags                 = var.tags
+  tags                      = var.tags
 }
 
 ############################################
@@ -64,29 +68,29 @@ resource "aws_security_group" "alb_sg" {
 # Web Security Group (for Compute instances)
 ############################################
 module "security" {
-  source = "./modules/Security"
-  environment          = var.environment
-  vpc_id               = module.vpc.vpc_id
-  alb_security_group_id = aws_security_group.alb_sg.id
-  my_trusted_ip        = var.my_trusted_ip
-    bastion_security_group_id = module.bastion_host.bastion_sg_id
-    vpc_cidr_block       = module.vpc.vpc_cidr
-    bastion_private_ip    = module.bastion_host.bastion_private_ip
-    
-  tags                 = var.tags
+  source                    = "./modules/Security"
+  environment               = var.environment
+  vpc_id                    = module.vpc.vpc_id
+  alb_security_group_id     = aws_security_group.alb_sg.id
+  my_trusted_ip             = var.my_trusted_ip
+  bastion_security_group_id = module.bastion_host.bastion_sg_id
+  vpc_cidr_block            = module.vpc.vpc_cidr
+  bastion_private_ip        = module.bastion_host.bastion_private_ip
+
+  tags = var.tags
 }
 
 ############################################
 # ALB Module
 ############################################
 module "alb" {
-  source             = "./modules/alb"
-  environment        = var.environment
-  vpc_id             = module.vpc.vpc_id
-  subnet_ids         = module.vpc.public_subnet_ids
-  tags               = var.tags
-  acm_certificate_arn = var.acm_certificate_arn  
-  alb_sg_id          = aws_security_group.alb_sg.id
+  source              = "./modules/alb"
+  environment         = var.environment
+  vpc_id              = module.vpc.vpc_id
+  subnet_ids          = module.vpc.public_subnet_ids
+  tags                = var.tags
+  acm_certificate_arn = var.acm_certificate_arn
+  alb_sg_id           = aws_security_group.alb_sg.id
 
 }
 
@@ -113,17 +117,17 @@ resource "aws_route" "alb_public_route" {
 # Compute Module (EC2 / ASG)
 ############################################
 module "compute" {
-  source        = "./modules/compute-hybrid"
-  compute_mode  = var.compute_mode
-  environment   = var.environment
-  name          = "app"
-  ami_id        = var.ami_id
-  instance_type = var.instance_type
-  key_name      = var.key_name
-  subnet_ids    = module.vpc.private_subnet_ids
+  source            = "./modules/compute-hybrid"
+  compute_mode      = var.compute_mode
+  environment       = var.environment
+  name              = "app"
+  ami_id            = var.ami_id
+  instance_type     = var.instance_type
+  key_name          = var.key_name
+  subnet_ids        = module.vpc.private_subnet_ids
   security_group_id = module.security.alb_sg_id
-  
-  
+
+
 
   # ALB integration
   alb_target_group_arn        = module.alb.target_group_arn
@@ -169,4 +173,17 @@ resource "local_file" "private_key" {
   content         = tls_private_key.example.private_key_pem
   filename        = "${path.module}/my-generated-key.pem"
   file_permission = "0400"
+}
+############################################
+# Cloud Watch Alerts Module
+############################################
+
+module "cloudwatch_alerts" {
+  source                      = "./modules/cloudwatch-alerts"
+  environment                 = var.environment
+  asg_name                    = module.compute.asg_name
+  asg_cpu_threshold           = 80 # Replace with your desired threshold
+  alb_arn_suffix              = module.alb.alb_arn_suffix
+  alb_target_group_arn_suffix = module.alb.target_group_arn_suffix
+  alerts_email                = "a.shihab@hotmail.com"
 }

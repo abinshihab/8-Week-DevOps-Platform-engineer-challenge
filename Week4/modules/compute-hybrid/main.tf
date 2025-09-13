@@ -42,6 +42,12 @@ resource "aws_launch_template" "this" {
   instance_type          = var.instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [var.security_group_id]
+
+  # IAM Role for CloudWatch Agent
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2_cw_agent_profile.name
+  }
+  # Inject user_data for Apache + CloudWatch Agent
   user_data = base64encode(file("${path.module}/../../scripts/user_data.sh"))
 
   tag_specifications {
@@ -52,7 +58,7 @@ resource "aws_launch_template" "this" {
   }
 }
 
-# Auto Scaling Group (ASG) configuration
+# Auto Scaling Group (ASG)
 resource "aws_autoscaling_group" "this" {
   count = var.compute_mode == "asg" ? 1 : 0
 
@@ -67,10 +73,9 @@ resource "aws_autoscaling_group" "this" {
     version = "$Latest"
   }
 
-  # Register instances with ALB Target Group
   target_group_arns = [var.alb_target_group_arn]
 
-  # Tags for the ASG and propagated to instances
+  # Tags for ASG instances
   tag {
     key                 = "Name"
     value               = var.name
@@ -102,7 +107,7 @@ resource "aws_autoscaling_policy" "cpu_scale_target" {
     predefined_metric_specification {
       predefined_metric_type = "ASGAverageCPUUtilization"
     }
-    target_value = 60 # Target CPU utilization percentage
+    target_value = 60
   }
 }
 
@@ -118,16 +123,16 @@ resource "aws_autoscaling_policy" "request_scale_target" {
       predefined_metric_type = "ALBRequestCountPerTarget"
       resource_label         = "${var.alb_arn_suffix}/${var.alb_target_group_arn_suffix}"
     }
-    target_value = 100 # Target requests per target
+    target_value = 100
   }
 }
 
-# Classic CPU-based scale-out/in
+# Classic CPU scale-out/in policies
 resource "aws_autoscaling_policy" "scale_out_cpu" {
   count                  = var.compute_mode == "asg" ? 1 : 0
   name                   = "${var.environment}-cpu-scale-out"
-  adjustment_type        = "ChangeInCapacity"
-  scaling_adjustment     = 1
+  adjustment_type         = "ChangeInCapacity"
+  scaling_adjustment      = 1
   cooldown               = 300
   autoscaling_group_name = aws_autoscaling_group.this[0].name
 }
@@ -135,8 +140,38 @@ resource "aws_autoscaling_policy" "scale_out_cpu" {
 resource "aws_autoscaling_policy" "scale_in_cpu" {
   count                  = var.compute_mode == "asg" ? 1 : 0
   name                   = "${var.environment}-cpu-scale-in"
-  adjustment_type        = "ChangeInCapacity"
-  scaling_adjustment     = -1
+  adjustment_type         = "ChangeInCapacity"
+  scaling_adjustment      = -1
   cooldown               = 300
   autoscaling_group_name = aws_autoscaling_group.this[0].name
+}
+
+# IAM Role for EC2 CloudWatch Agent
+resource "aws_iam_role" "ec2_cw_agent_role" {
+  name = "${var.environment}-ec2-cw-agent-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+# Attach AmazonCloudWatchAgentPolicy
+resource "aws_iam_role_policy_attachment" "cw_agent_attach" {
+  role       = aws_iam_role.ec2_cw_agent_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+# Create IAM Instance Profile
+resource "aws_iam_instance_profile" "ec2_cw_agent_profile" {
+  name = "${var.environment}-ec2-cw-agent-profile"
+  role = aws_iam_role.ec2_cw_agent_role.name
 }
