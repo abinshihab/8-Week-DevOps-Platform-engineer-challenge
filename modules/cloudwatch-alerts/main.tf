@@ -1,8 +1,24 @@
 ############################################
-# CloudWatch Alerts Module
+# CloudWatch Alerts Module 
 ############################################
 
-# Alarm for high CPU usage on EC2 in ASG
+# SNS Topic for sending alerts
+resource "aws_sns_topic" "alerts" {
+  name = "${var.environment}-alerts"
+}
+
+# SNS Subscription (Email)
+resource "aws_sns_topic_subscription" "email" {
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = var.alerts_email
+}
+
+############################################
+# CloudWatch Alarms
+############################################
+
+# Alarm for High CPU in ASG
 resource "aws_cloudwatch_metric_alarm" "asg_cpu_high" {
   alarm_name          = "${var.environment}-asg-cpu-high"
   comparison_operator = "GreaterThanThreshold"
@@ -12,14 +28,14 @@ resource "aws_cloudwatch_metric_alarm" "asg_cpu_high" {
   period              = 60
   statistic           = "Average"
   threshold           = var.asg_cpu_threshold
-  alarm_description   = "Alarm when average CPU utilization exceeds ${var.asg_cpu_threshold}%"
+  alarm_description   = "Alarm when ASG average CPU exceeds ${var.asg_cpu_threshold}%"
   dimensions = {
     AutoScalingGroupName = var.asg_name
   }
-  alarm_actions       = [aws_sns_topic.alerts.arn]
+  alarm_actions = [aws_sns_topic.alerts.arn]
 }
 
-# Alarm for unhealthy ALB hosts
+# Alarm for Unhealthy ALB Targets
 resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   alarm_name          = "${var.environment}-alb-unhealthy-hosts"
   comparison_operator = "GreaterThanThreshold"
@@ -29,28 +45,20 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   period              = 60
   statistic           = "Average"
   threshold           = 1
-  alarm_description   = "Alarm when ALB has unhealthy hosts"
+  alarm_description   = "Alarm when ALB has unhealthy targets"
   dimensions = {
     LoadBalancer = var.alb_arn_suffix
     TargetGroup  = var.alb_target_group_arn_suffix
   }
-  alarm_actions       = [aws_sns_topic.alerts.arn]
+  alarm_actions = [aws_sns_topic.alerts.arn]
 }
 
-# SNS Topic for sending alerts
-resource "aws_sns_topic" "alerts" {
-  name = "${var.environment}-alerts"
-}
+############################################
+# IAM Role for CloudWatch Agent on EC2
+############################################
 
-# SNS Subscription (email)
-resource "aws_sns_topic_subscription" "email" {
-  topic_arn = aws_sns_topic.alerts.arn
-  protocol  = "email"
-  endpoint  = var.alerts_email
-}
-# EC2 CloudWatch Agent Role
 resource "aws_iam_role" "ec2_cw_agent_role" {
-  name = "EC2CloudWatchAgentRole"
+  name = "${var.environment}-ec2-cloudwatch-agent-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -68,4 +76,3 @@ resource "aws_iam_role_policy_attachment" "cw_agent_policy" {
   role       = aws_iam_role.ec2_cw_agent_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
-
