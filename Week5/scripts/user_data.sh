@@ -21,7 +21,7 @@ retry_yum() {
   done
 }
 
-# Update packages safely (optional; skip if you don't need updates at boot)
+# Update packages safely
 retry_yum "yum clean all"
 retry_yum "yum makecache"
 retry_yum "yum -y update"
@@ -34,9 +34,21 @@ cat <<EOL > /etc/httpd/conf.d/listen.conf
 Listen 0.0.0.0:80
 EOL
 
-# Create a simple HTML page
+# Create an instance-unique HTML page
 mkdir -p /var/www/html
-echo "Welcome to My 8 Weeks Challenge Page" > /var/www/html/index.html
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+HOSTNAME=$(hostname)
+cat <<EOPAGE > /var/www/html/index.html
+<html>
+  <head><title>8 Weeks Challenge</title></head>
+  <body>
+    <h1>Welcome to My 8 Weeks Challenge Page 🚀</h1>
+    <p>Served from instance: <b>$INSTANCE_ID</b></p>
+    <p>Hostname: <b>$HOSTNAME</b></p>
+    <p>Date: $(date)</p>
+  </body>
+</html>
+EOPAGE
 
 # Enable and start Apache
 systemctl enable httpd
