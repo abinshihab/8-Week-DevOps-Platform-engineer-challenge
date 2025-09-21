@@ -1,38 +1,36 @@
-# Security Group for Web Servers (EC2 instances behind ALB)
+############################################
+# Security Group for Web Servers (behind ALB)
+############################################
 resource "aws_security_group" "web_sg" {
   name        = "${var.environment}-web-sg"
-  description = "Allow HTTP from ALB and SSH from bastion"
+  description = "Allow HTTP from ALB and SSH from Bastion"
   vpc_id      = var.vpc_id
 
-  # Ingress rule: Allow HTTP traffic from ALB only
+  # HTTP from ALB only
   ingress {
-    description     = "Allow HTTP from ALB security group"
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
     security_groups = [var.alb_security_group_id]
   }
 
-  # Ingress rule: Allow SSH traffic from Bastion host only
+  # SSH from Bastion only
   ingress {
-    description     = "Allow SSH from Bastion"
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
     security_groups = [var.bastion_security_group_id]
   }
+
+  # ICMP (ping) from VPC
   ingress {
-    description = "Allow ICMP (ping) from VPC"
     from_port   = -1
     to_port     = -1
     protocol    = "icmp"
-    cidr_blocks = [var.vpc_cidr_block]  
+    cidr_blocks = [var.vpc_cidr_block]
   }
 
-
-  # Optional ingress rule: Allow SSH from your trusted IP
-  # Uses dynamic block to include only if variable is not null
+  # Optional SSH from trusted IP
   dynamic "ingress" {
     for_each = var.my_trusted_ip != null ? [var.my_trusted_ip] : []
     content {
@@ -44,19 +42,38 @@ resource "aws_security_group" "web_sg" {
     }
   }
 
-  # Egress rule: Allow all outbound traffic (required for updates, downloads, API calls)
+  # All outbound
   egress {
-    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  #########################
-  # Tags
-  #########################
-  tags = merge(var.tags, {
-    Name = "${var.environment}-web-sg"
-  })
+  tags = merge(var.tags, { Name = "${var.environment}-web-sg" })
+}
+
+############################################
+# Security Group for Database
+############################################
+resource "aws_security_group" "db_sg" {
+  name        = "${var.project}-db-sg"
+  description = "Database security group"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidrs
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(var.tags, { Name = "${var.project}-db-sg" })
 }

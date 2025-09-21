@@ -32,3 +32,9 @@ variable "alerts_email" {
   description = "Email to send CloudWatch alerts to"
   type        = string
 }
+
+variable "alb_request_threshold" {
+  description = "RequestCount threshold for ALB high traffic alarm"
+  type        = number
+  default     = 500
+}

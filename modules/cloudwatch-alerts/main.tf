@@ -15,6 +15,24 @@ resource "aws_sns_topic_subscription" "email" {
 }
 
 ############################################
+# Auto Scaling Policies
+############################################
+
+resource "aws_autoscaling_policy" "scale_out" {
+  name                   = "${var.environment}-cpu-scale-out"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  autoscaling_group_name = var.asg_name
+}
+
+resource "aws_autoscaling_policy" "scale_in" {
+  name                   = "${var.environment}-cpu-scale-in"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  autoscaling_group_name = var.asg_name
+}
+
+############################################
 # CloudWatch Alarms
 ############################################
 
@@ -32,10 +50,16 @@ resource "aws_cloudwatch_metric_alarm" "asg_cpu_high" {
   dimensions = {
     AutoScalingGroupName = var.asg_name
   }
-  alarm_actions = [aws_sns_topic.alerts.arn]
+  alarm_actions = [
+    aws_autoscaling_policy.scale_out.arn,
+    aws_sns_topic.alerts.arn
+  ]
+  ok_actions = [
+    aws_autoscaling_policy.scale_in.arn
+  ]
 }
 
-# Alarm for Unhealthy ALB Targets
+# Alarm for ALB Unhealthy Hosts
 resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   alarm_name          = "${var.environment}-alb-unhealthy-hosts"
   comparison_operator = "GreaterThanThreshold"
@@ -51,6 +75,30 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
     TargetGroup  = var.alb_target_group_arn_suffix
   }
   alarm_actions = [aws_sns_topic.alerts.arn]
+}
+
+# Alarm for ALB High Request Count (Traffic-Based Scaling)
+resource "aws_cloudwatch_metric_alarm" "alb_high_request_count" {
+  alarm_name          = "${var.environment}-alb-high-request-count"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "RequestCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = var.alb_request_threshold
+  alarm_description   = "Alarm when ALB request count exceeds threshold"
+  dimensions = {
+    LoadBalancer = var.alb_arn_suffix
+    TargetGroup  = var.alb_target_group_arn_suffix
+  }
+  alarm_actions = [
+    aws_autoscaling_policy.scale_out.arn,
+    aws_sns_topic.alerts.arn
+  ]
+  ok_actions = [
+    aws_autoscaling_policy.scale_in.arn
+  ]
 }
 
 ############################################

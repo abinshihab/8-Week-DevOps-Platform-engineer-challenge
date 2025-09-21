@@ -76,7 +76,8 @@ module "security" {
   bastion_security_group_id = module.bastion_host.bastion_sg_id
   vpc_cidr_block            = module.vpc.vpc_cidr
   bastion_private_ip        = module.bastion_host.bastion_private_ip
-
+  allowed_cidrs = ["10.0.0.0/16"]   # your actual CIDR range
+  project = var.project
   tags = var.tags
 }
 
@@ -186,4 +187,19 @@ module "cloudwatch_alerts" {
   alb_arn_suffix              = module.alb.alb_arn_suffix
   alb_target_group_arn_suffix = module.alb.target_group_arn_suffix
   alerts_email                = "a.shihab@hotmail.com"
+}
+############################################
+# rds Module
+############################################
+
+module "rds" {
+  source          = "../modules/rds"
+  project         = var.project
+  environment     = var.environment
+  private_subnets = module.vpc.private_subnets
+  security_groups = [module.security.db_sg_id]
+
+  username = var.db_username
+  password = var.db_password
+  tags     = var.tags
 }
