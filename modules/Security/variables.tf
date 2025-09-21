@@ -3,8 +3,13 @@ variable "environment" {
   type        = string
 }
 
+variable "project" {
+  description = "Project name"
+  type        = string
+}
+
 variable "vpc_id" {
-  description = "VPC ID where SG will be created"
+  description = "VPC ID where SGs will be created"
   type        = string
 }
 
@@ -18,8 +23,19 @@ variable "bastion_security_group_id" {
   type        = string
 }
 
+variable "vpc_cidr_block" {
+  description = "CIDR block of the VPC for internal traffic"
+  type        = string
+}
+
+variable "allowed_cidrs" {
+  description = "List of CIDR blocks allowed to access the database SG"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
 variable "my_trusted_ip" {
-  description = "Trusted public IP for optional direct SSH access"
+  description = "Optional trusted public IP for SSH"
   type        = string
   default     = null
 }
@@ -28,17 +44,4 @@ variable "tags" {
   description = "Map of tags to apply"
   type        = map(string)
   default     = {}
-}
-variable "vpc_cidr_block" {
-  description = "CIDR block of the VPC for internal traffic"
-  type        = string
-}
-variable "bastion_public_ip" {
-  description = "Bastion public IP to allow SSH/HTTP if no manual trusted IP is set"
-  type        = string
-  default     = null
-}
-variable "bastion_private_ip" {
-  description = "Private IP of the Bastion host for SSH access"
-  type        = string
 }
