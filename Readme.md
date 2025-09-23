@@ -11,6 +11,10 @@ By the end of this challenge, you will have:
 - Security best practices (IAM, security groups, encryption)  
 - A portfolio-ready project with Terraform modules, outputs, and documentation  
 
+## Digram
+![Alt text](images/Daigram.png)
+
+
 ---
 
 ## Structure
