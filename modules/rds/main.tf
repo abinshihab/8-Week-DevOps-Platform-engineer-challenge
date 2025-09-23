@@ -11,7 +11,7 @@ resource "aws_db_subnet_group" "this" {
   })
 }
 
-resource "aws_db_instance" "this" {
+resource "aws_db_instance" "db" {
   identifier              = "${var.project}-${var.environment}-db"
   allocated_storage       = var.allocated_storage
   max_allocated_storage   = var.max_allocated_storage

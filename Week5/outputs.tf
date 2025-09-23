@@ -42,3 +42,10 @@ output "instance_ids" {
   description = "IDs of single EC2 instance(s) if ASG is disabled"
   value       = try(module.compute.instance_ids, null)
 }
+output "db_endpoint" {
+  value = module.rds.db_endpoint
+}
+
+output "db_id" {
+  value = module.rds.db_id
+}

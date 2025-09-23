@@ -75,12 +75,11 @@ module "security" {
   my_trusted_ip             = var.my_trusted_ip
   bastion_security_group_id = module.bastion_host.bastion_sg_id
   vpc_cidr_block            = module.vpc.vpc_cidr
-  bastion_private_ip        = module.bastion_host.bastion_private_ip
   allowed_cidrs = ["10.0.0.0/16"]   # your actual CIDR range
   project = var.project
   tags = var.tags
-}
-
+  
+  }
 ############################################
 # ALB Module
 ############################################
@@ -155,6 +154,7 @@ module "bastion_host" {
   vpc_id           = module.vpc.vpc_id
   allowed_ssh_cidr = var.allowed_ssh_cidr # Replace with your IP
   key_name         = "bastion-key"
+  bastion_private_ip = "" # This variable is required by the module but not used in the current configuration.
 }
 
 ############################################

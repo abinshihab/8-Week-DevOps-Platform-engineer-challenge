@@ -30,7 +30,7 @@ resource "aws_security_group" "web_sg" {
     cidr_blocks = [var.vpc_cidr_block]
   }
 
-  # Optional SSH from trusted IP
+  # Optional SSH from trusted IP (your laptop)
   dynamic "ingress" {
     for_each = var.my_trusted_ip != null ? [var.my_trusted_ip] : []
     content {
@@ -42,7 +42,7 @@ resource "aws_security_group" "web_sg" {
     }
   }
 
-  # All outbound
+  # Outbound to anywhere
   egress {
     from_port   = 0
     to_port     = 0
@@ -61,13 +61,37 @@ resource "aws_security_group" "db_sg" {
   description = "Database security group"
   vpc_id      = var.vpc_id
 
+  # Allow DB access from Web SG
   ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_cidrs
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.web_sg.id]
   }
 
+  # Optional: allow DB access from Bastion SG
+  dynamic "ingress" {
+    for_each = var.bastion_security_group_id != null ? [var.bastion_security_group_id] : []
+    content {
+      from_port       = 3306
+      to_port         = 3306
+      protocol        = "tcp"
+      security_groups = [ingress.value]
+    }
+  }
+
+  # Optional: allow DB access from trusted IP (e.g. your laptop)
+  dynamic "ingress" {
+    for_each = var.my_trusted_ip != null ? [var.my_trusted_ip] : []
+    content {
+      from_port   = 3306
+      to_port     = 3306
+      protocol    = "tcp"
+      cidr_blocks = [ingress.value]
+    }
+  }
+
+  # Outbound to anywhere
   egress {
     from_port   = 0
     to_port     = 0

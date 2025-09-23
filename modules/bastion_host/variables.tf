@@ -38,3 +38,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+variable "bastion_private_ip" {
+  description = "The private IP address of the bastion host"
+  type        = string
+  
+}
