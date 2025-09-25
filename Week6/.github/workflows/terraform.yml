@@ -1,0 +1,32 @@
+name: Terraform CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      TF_VAR_project: my-project
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: terraform init -backend-config="bucket=${{ secrets.TF_BUCKET }}" \
+                             -backend-config="dynamodb_table=${{ secrets.TF_DYNAMODB }}" \
+                             -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Terraform Plan
+        run: terraform plan -var-file=envs/dev.tfvars
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve -var-file=envs/dev.tfvars
+
