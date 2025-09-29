@@ -2,7 +2,8 @@
 # Provider Configuration
 ############################################
 provider "aws" {
-  region = var.aws_region
+  region  = var.aws_region
+  profile = "default"
 }
 
 ############################################
@@ -10,11 +11,12 @@ provider "aws" {
 ############################################
 resource "aws_s3_bucket" "tf_state" {
   bucket = var.bucket_name
-
   tags = {
     Name = var.bucket_name
     Env  = "bootstrap"
   }
+
+  force_destroy = true
 }
 
 ############################################
@@ -24,11 +26,9 @@ resource "aws_s3_bucket_versioning" "tf_state_versioning" {
   bucket = aws_s3_bucket.tf_state.id
 
   versioning_configuration {
-  
     status = "Enabled"
   }
 }
-
 
 ############################################
 # DynamoDB Table for State Locking

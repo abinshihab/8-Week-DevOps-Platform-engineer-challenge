@@ -1,30 +1,36 @@
 pipeline {
     agent any
+
     environment {
-        AWS_REGION = 'us-east-1'
+        AWS_PROFILE = 'default'
+        AWS_REGION  = 'us-east-1'
     }
+
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
+
         stage('Terraform Init') {
             steps {
-                sh 'terraform init -backend-config="bucket=my-tf-bucket" -backend-config="dynamodb_table=my-tf-locks" -backend-config="region=$AWS_REGION"'
+                sh 'terraform init -reconfigure -var-file=terraform.tfvars'
             }
         }
+
         stage('Terraform Plan') {
             steps {
-                sh 'terraform plan -var-file=envs/dev.tfvars'
+                sh 'terraform plan -var-file=terraform.tfvars'
             }
         }
+
         stage('Terraform Apply') {
             when {
                 branch 'main'
             }
             steps {
-                sh 'terraform apply -auto-approve -var-file=envs/dev.tfvars'
+                sh 'terraform apply -auto-approve -var-file=terraform.tfvars'
             }
         }
     }
