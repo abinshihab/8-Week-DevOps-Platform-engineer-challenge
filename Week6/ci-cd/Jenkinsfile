@@ -2,26 +2,55 @@ pipeline {
     agent any
 
     environment {
+        PATH = "/usr/local/bin:${env.PATH}"  // ensures Jenkins can find terraform
         AWS_PROFILE = 'default'
         AWS_REGION  = 'us-east-1'
+    }
+
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     stages {
         stage('Checkout') {
             steps {
+                echo "🧹 Cleaning workspace..."
+                deleteDir()  // Force fresh checkout every run
                 checkout scm
+                echo "✅ Code checked out on branch: ${env.BRANCH_NAME}"
             }
         }
 
         stage('Terraform Init') {
             steps {
-                sh 'terraform init -reconfigure -var-file=terraform.tfvars'
+                echo "🚀 Initializing Terraform..."
+                sh '''
+                  terraform init \
+                    -reconfigure \
+                    -input=false \
+                    -var-file=terraform.tfvars
+                '''
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                echo "🔎 Validating Terraform configuration..."
+                sh 'terraform validate'
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                sh 'terraform plan -var-file=terraform.tfvars'
+                echo "📋 Running Terraform Plan..."
+                sh '''
+                  terraform plan \
+                    -input=false \
+                    -var-file=terraform.tfvars \
+                    -out=tfplan
+                '''
+                archiveArtifacts artifacts: 'tfplan', fingerprint: true
             }
         }
 
@@ -30,8 +59,26 @@ pipeline {
                 branch 'main'
             }
             steps {
-                sh 'terraform apply -auto-approve -var-file=terraform.tfvars'
+                echo "⚡ Applying Terraform changes..."
+                sh '''
+                  terraform apply \
+                    -auto-approve \
+                    -input=false \
+                    -var-file=terraform.tfvars
+                '''
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline succeeded!"
+        }
+        failure {
+            echo "❌ Pipeline failed!"
+        }
+        always {
+            echo "🔔 Pipeline finished with status: ${currentBuild.currentResult}"
         }
     }
 }

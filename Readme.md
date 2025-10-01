@@ -116,7 +116,7 @@ Disaster recovery and auto-healing with ASGs
 Security and IAM best practices
 Documentation for portfolio & GitHub showcase
 Contact / Community
-LinkedIn: [Your LinkedIn URL]
+LinkedIn: 
 Questions, feedback, or tips are welcome!
 
 ---
@@ -124,4 +124,4 @@ Questions, feedback, or tips are welcome!
 If you want, I can also **add badges, icons, and a simple visual diagram section** so your GitHub README **looks more professional and portfolio-ready**.  
 
 Do you want me to do that next?
-123
+test main
