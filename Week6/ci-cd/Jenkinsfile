@@ -2,83 +2,54 @@ pipeline {
     agent any
 
     environment {
-        PATH = "/usr/local/bin:${env.PATH}"  // ensures Jenkins can find terraform
-        AWS_PROFILE = 'default'
-        AWS_REGION  = 'us-east-1'
-    }
-
-    options {
-        timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '10'))
+        TF_ENV = 'dev'                                      // Change this to dev/stage/prod as needed
+        TF_VARS_FILE = "envs/${TF_ENV}/${TF_ENV}.tfvars"   // Points to your environment tfvars file
     }
 
     stages {
-        stage('Checkout') {
+
+        stage('Checkout SCM') {
             steps {
-                echo "🧹 Cleaning workspace..."
-                deleteDir()  // Force fresh checkout every run
+                echo "🔄 Checking out code..."
                 checkout scm
-                echo "✅ Code checked out on branch: ${env.BRANCH_NAME}"
             }
         }
 
         stage('Terraform Init') {
             steps {
                 echo "🚀 Initializing Terraform..."
-                sh '''
-                  terraform init \
-                    -reconfigure \
-                    -input=false \
-                    -var-file=terraform.tfvars
-                '''
+                sh "terraform init -reconfigure -input=false -var-file=${TF_VARS_FILE}"
             }
         }
 
         stage('Terraform Validate') {
             steps {
                 echo "🔎 Validating Terraform configuration..."
-                sh 'terraform validate'
+                sh "terraform validate"
             }
         }
 
         stage('Terraform Plan') {
             steps {
                 echo "📋 Running Terraform Plan..."
-                sh '''
-                  terraform plan \
-                    -input=false \
-                    -var-file=terraform.tfvars \
-                    -out=tfplan
-                '''
-                archiveArtifacts artifacts: 'tfplan', fingerprint: true
+                sh "terraform plan -input=false -var-file=${TF_VARS_FILE} -out=tfplan"
             }
         }
 
         stage('Terraform Apply') {
-            when {
-                branch 'main'
-            }
             steps {
                 echo "⚡ Applying Terraform changes..."
-                sh '''
-                  terraform apply \
-                    -auto-approve \
-                    -input=false \
-                    -var-file=terraform.tfvars
-                '''
+                sh "terraform apply -auto-approve tfplan"
             }
         }
     }
 
     post {
         success {
-            echo "✅ Pipeline succeeded!"
+            echo "✅ Pipeline completed successfully!"
         }
         failure {
             echo "❌ Pipeline failed!"
-        }
-        always {
-            echo "🔔 Pipeline finished with status: ${currentBuild.currentResult}"
         }
     }
 }
