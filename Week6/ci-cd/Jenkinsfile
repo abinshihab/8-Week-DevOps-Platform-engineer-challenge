@@ -1,52 +1,61 @@
 pipeline {
     agent any
-
     environment {
-        TF_ENV = 'dev'                                      // Change this to dev/stage/prod as needed
-        TF_VARS_FILE = "envs/${TF_ENV}/${TF_ENV}.tfvars"   // Points to your environment tfvars file
+        TF_VAR_ENV = 'dev'
     }
-
     stages {
-
-        stage('Checkout SCM') {
+        stage('Checkout') {
             steps {
-                echo "🔄 Checking out code..."
+                echo "🧹 Cleaning workspace..."
+                deleteDir()
                 checkout scm
+                echo "✅ Code checked out"
             }
         }
 
         stage('Terraform Init') {
             steps {
-                echo "🚀 Initializing Terraform..."
-                sh "terraform init -reconfigure -input=false -var-file=${TF_VARS_FILE}"
+                dir('Week6/bootstrap-backend') {
+                    echo "🚀 Initializing Terraform..."
+                    sh 'terraform init -reconfigure -input=false -var-file=envs/dev/dev.tfvars'
+                }
             }
         }
 
         stage('Terraform Validate') {
             steps {
-                echo "🔎 Validating Terraform configuration..."
-                sh "terraform validate"
+                dir('Week6/bootstrap-backend') {
+                    echo "🔎 Validating Terraform configuration..."
+                    sh 'terraform validate'
+                }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                echo "📋 Running Terraform Plan..."
-                sh "terraform plan -input=false -var-file=${TF_VARS_FILE} -out=tfplan"
+                dir('Week6/bootstrap-backend') {
+                    echo "📋 Running Terraform Plan..."
+                    sh 'terraform plan -input=false -var-file=envs/dev/dev.tfvars -out=tfplan'
+                }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                echo "⚡ Applying Terraform changes..."
-                sh "terraform apply -auto-approve tfplan"
+                dir('Week6/bootstrap-backend') {
+                    echo "⚡ Applying Terraform changes..."
+                    sh 'terraform apply -input=false tfplan'
+                }
             }
         }
     }
 
     post {
+        always {
+            echo "🔔 Pipeline finished!"
+        }
         success {
-            echo "✅ Pipeline completed successfully!"
+            echo "✅ Pipeline succeeded!"
         }
         failure {
             echo "❌ Pipeline failed!"
