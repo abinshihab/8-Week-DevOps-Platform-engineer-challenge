@@ -1,61 +1,58 @@
 pipeline {
     agent any
+
     environment {
-        TF_VAR_ENV = 'dev'
+        TF_VAR_FILE = "envs/dev/dev.tfvars"
     }
+
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
-                echo "🧹 Cleaning workspace..."
-                deleteDir()
+                echo "🔄 Checking out code..."
                 checkout scm
-                echo "✅ Code checked out"
             }
         }
 
         stage('Terraform Init') {
             steps {
-                dir('Week6/bootstrap-backend') {
+                dir("${WORKSPACE}/Week6") {
                     echo "🚀 Initializing Terraform..."
-                    sh 'terraform init -reconfigure -input=false -var-file=envs/dev/dev.tfvars'
+                    sh "terraform init -reconfigure -input=false -var-file=${TF_VAR_FILE}"
                 }
             }
         }
 
         stage('Terraform Validate') {
             steps {
-                dir('Week6/bootstrap-backend') {
+                dir("${WORKSPACE}/Week6") {
                     echo "🔎 Validating Terraform configuration..."
-                    sh 'terraform validate'
+                    sh "terraform validate"
                 }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                dir('Week6/bootstrap-backend') {
+                dir("${WORKSPACE}/Week6") {
                     echo "📋 Running Terraform Plan..."
-                    sh 'terraform plan -input=false -var-file=envs/dev/dev.tfvars -out=tfplan'
+                    sh "terraform plan -input=false -var-file=${TF_VAR_FILE} -out=tfplan"
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                dir('Week6/bootstrap-backend') {
-                    echo "⚡ Applying Terraform changes..."
-                    sh 'terraform apply -input=false tfplan'
+                dir("${WORKSPACE}/Week6") {
+                    echo "⚡ Applying Terraform Plan..."
+                    sh "terraform apply -input=false tfplan"
                 }
             }
         }
     }
 
     post {
-        always {
-            echo "🔔 Pipeline finished!"
-        }
         success {
-            echo "✅ Pipeline succeeded!"
+            echo "✅ Pipeline finished successfully!"
         }
         failure {
             echo "❌ Pipeline failed!"
