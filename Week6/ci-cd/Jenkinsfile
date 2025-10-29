@@ -4,7 +4,6 @@ pipeline {
     environment {
         TF_VAR_FILE = "envs/dev/dev.tfvars"
         TF_DIR = "${WORKSPACE}/Week6"
-        
     }
 
     stages {
@@ -81,12 +80,16 @@ pipeline {
         success {
             echo "✅ Pipeline finished successfully!"
             script {
-                if (env.SLACK_WEBHOOK_URL) {
-                    sh """
-                    curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text": "✅ Terraform Pipeline succeeded for ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
-                    ${SLACK_WEBHOOK_URL}
-                    """
+                try {
+                    withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
+                        sh """
+                        curl -X POST -H 'Content-type: application/json' \
+                        --data '{"text": "✅ Terraform Pipeline succeeded for ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
+                        "${SLACK_WEBHOOK_URL}"
+                        """
+                    }
+                } catch (e) {
+                    echo "ℹ️ Slack credential 'slack_webhook_url' not set. Skipping Slack notification."
                 }
             }
         }
@@ -94,12 +97,16 @@ pipeline {
         failure {
             echo "❌ Pipeline failed!"
             script {
-                if (env.SLACK_WEBHOOK_URL) {
-                    sh """
-                    curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text": "❌ Terraform Pipeline failed for ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
-                    ${SLACK_WEBHOOK_URL}
-                    """
+                try {
+                    withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
+                        sh """
+                        curl -X POST -H 'Content-type: application/json' \
+                        --data '{"text": "❌ Terraform Pipeline failed for ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
+                        "${SLACK_WEBHOOK_URL}"
+                        """
+                    }
+                } catch (e) {
+                    echo "ℹ️ Slack credential 'slack_webhook_url' not set. Skipping Slack notification."
                 }
             }
         }
