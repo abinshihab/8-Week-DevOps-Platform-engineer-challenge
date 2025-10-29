@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         TF_VAR_FILE = "envs/dev/dev.tfvars"
+        TF_DIR = "${WORKSPACE}/Week6"
+        SLACK_WEBHOOK_URL = credentials('slack_webhook_url') // optional if using Slack
     }
 
     stages {
@@ -13,9 +15,31 @@ pipeline {
             }
         }
 
+        stage('Parallel Checks') {
+            parallel {
+                stage('Terraform Lint') {
+                    steps {
+                        dir("${TF_DIR}") {
+                            echo "🧹 Running Terraform fmt check..."
+                            sh "terraform fmt -check -recursive || true"
+                        }
+                    }
+                }
+
+                stage('Security Scan (tfsec)') {
+                    steps {
+                        dir("${TF_DIR}") {
+                            echo "🛡️ Running tfsec security scan..."
+                            sh "tfsec . || true"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Terraform Init') {
             steps {
-                dir("${WORKSPACE}/Week6") {
+                dir("${TF_DIR}") {
                     echo "🚀 Initializing Terraform..."
                     sh "terraform init -reconfigure -input=false -var-file=${TF_VAR_FILE}"
                 }
@@ -24,7 +48,7 @@ pipeline {
 
         stage('Terraform Validate') {
             steps {
-                dir("${WORKSPACE}/Week6") {
+                dir("${TF_DIR}") {
                     echo "🔎 Validating Terraform configuration..."
                     sh "terraform validate"
                 }
@@ -33,16 +57,19 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                dir("${WORKSPACE}/Week6") {
+                dir("${TF_DIR}") {
                     echo "📋 Running Terraform Plan..."
                     sh "terraform plan -input=false -var-file=${TF_VAR_FILE} -out=tfplan"
+                    sh "terraform show -no-color tfplan > tfplan.txt"
+                    archiveArtifacts artifacts: 'Week6/tfplan.txt', fingerprint: true
                 }
             }
         }
 
         stage('Terraform Apply') {
+            when { expression { return params.APPLY_INFRA == true } }
             steps {
-                dir("${WORKSPACE}/Week6") {
+                dir("${TF_DIR}") {
                     echo "⚡ Applying Terraform Plan..."
                     sh "terraform apply -input=false tfplan"
                 }
@@ -53,9 +80,32 @@ pipeline {
     post {
         success {
             echo "✅ Pipeline finished successfully!"
+            script {
+                if (env.SLACK_WEBHOOK_URL) {
+                    sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                    --data '{"text": "✅ Terraform Pipeline succeeded for ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
+                    ${SLACK_WEBHOOK_URL}
+                    """
+                }
+            }
         }
+
         failure {
             echo "❌ Pipeline failed!"
+            script {
+                if (env.SLACK_WEBHOOK_URL) {
+                    sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                    --data '{"text": "❌ Terraform Pipeline failed for ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
+                    ${SLACK_WEBHOOK_URL}
+                    """
+                }
+            }
+        }
+
+        always {
+            echo "🔔 Pipeline finished!"
         }
     }
 }
