@@ -4,7 +4,7 @@ pipeline {
     environment {
         TF_VAR_FILE = "envs/dev/dev.tfvars"
         TF_DIR = "${WORKSPACE}/Week6"
-        SLACK_WEBHOOK_URL = credentials('slack_webhook_url') // optional if using Slack
+        
     }
 
     stages {
