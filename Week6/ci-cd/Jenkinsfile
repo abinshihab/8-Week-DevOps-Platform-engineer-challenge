@@ -57,16 +57,17 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 dir("${TF_DIR}") {
+                    echo "📋 Running Terraform Plan..."
                     withCredentials([
                         string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
                         string(credentialsId: 'allowed_ssh_cidr', variable: 'ALLOWED_SSH_CIDR')
                     ]) {
-                        echo "📋 Running Terraform Plan..."
                         sh """
                         terraform plan -input=false \
-                          -var="my_trusted_ip=${MY_TRUSTED_IP}" \
-                          -var="allowed_ssh_cidr=${ALLOWED_SSH_CIDR}" \
-                          -var-file=${TF_VAR_FILE} -out=tfplan
+                            -var-file=${TF_VAR_FILE} \
+                            -var="my_trusted_ip=${MY_TRUSTED_IP}" \
+                            -var="allowed_ssh_cidr=${ALLOWED_SSH_CIDR}" \
+                            -out=tfplan
                         terraform show -no-color tfplan > tfplan.txt
                         """
                     }
@@ -79,14 +80,12 @@ pipeline {
             when { expression { return params.APPLY_INFRA == true } }
             steps {
                 dir("${TF_DIR}") {
+                    echo "⚡ Applying Terraform Plan..."
                     withCredentials([
                         string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
                         string(credentialsId: 'allowed_ssh_cidr', variable: 'ALLOWED_SSH_CIDR')
                     ]) {
-                        echo "⚡ Applying Terraform Plan..."
-                        sh """
-                        terraform apply -input=false tfplan
-                        """
+                        sh "terraform apply -input=false tfplan"
                     }
                 }
             }
