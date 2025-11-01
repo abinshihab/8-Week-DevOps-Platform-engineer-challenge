@@ -71,7 +71,7 @@ pipeline {
                         terraform show -no-color tfplan > tfplan.txt
                         """
                     }
-                    archiveArtifacts artifacts: 'Week6/tfplan.txt', fingerprint: true
+                    archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
                 }
             }
         }
