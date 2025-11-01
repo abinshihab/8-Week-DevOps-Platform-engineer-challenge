@@ -6,7 +6,7 @@ terraform.tfstate*
 .crash
 .env
 .envrc
-*.tfvars
+
 *.tfvars.json
 !envs/stage/terraform.tfvars
 *.tfstate
@@ -19,3 +19,10 @@ Week3.zip
 Week3.zip
 *.zip
 secret.auto.tfvars
+
+# Ignore all tfvars except Week6
+*.tfvars
+!Week6/envs/dev/dev.tfvars
+!Week6/envs/prod/prod.tfvars
+!Week6/envs/stage/stage.tfvars
+

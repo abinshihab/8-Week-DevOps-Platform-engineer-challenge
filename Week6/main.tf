@@ -10,6 +10,7 @@ terraform {
   }
 }
 
+
 ############################################
 # VPC Module
 ############################################
@@ -202,4 +203,28 @@ module "rds" {
   username = var.db_username
   password = var.db_password
   tags     = var.tags
+}
+
+# --- Fetch secure password from AWS SSM Parameter Store ---
+data "aws_ssm_parameter" "db_password" {
+  name            = "/cloudmind/dev/db_password"
+  with_decryption = true
+}
+
+# --- Define variable as sensitive (optional but good practice) ---
+variable "db_password" {
+  description = "Database password (fetched securely from SSM)"
+  type        = string
+  sensitive   = true
+  default     = data.aws_ssm_parameter.db_password.value
+}
+
+# --- Use the password in your resource ---
+resource "aws_db_instance" "app_db" {
+  engine               = "mysql"
+  instance_class       = "db.t3.micro"
+  username             = "admin"
+  password             = var.db_password
+  allocated_storage    = 20
+  skip_final_snapshot  = true
 }
