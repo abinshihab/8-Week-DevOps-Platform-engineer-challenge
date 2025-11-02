@@ -171,6 +171,3 @@ variable "db_engine" {
   type        = string
   
 }
-variable "db_password" {
-  default = data.aws_ssm_parameter.db_password.value
-}
