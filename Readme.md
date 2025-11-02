@@ -120,8 +120,17 @@ LinkedIn:
 Questions, feedback, or tips are welcome!
 
 ---
+---
 
-If you want, I can also **add badges, icons, and a simple visual diagram section** so your GitHub README **looks more professional and portfolio-ready**.  
+<p align="center">
+  <img src="https://img.shields.io/badge/License-Proprietary-red.svg?style=for-the-badge" alt="License: Proprietary" />
+  <img src="https://img.shields.io/badge/Protected%20by-©%20Ahmed%20Bin%20Shehab-blue.svg?style=for-the-badge" alt="Protected © Ahmed Bin Shehab" />
+</p>
 
-Do you want me to do that next?
-test main
+<p align="center">
+  © 2025 <strong>Ahmed Bin Shehab</strong> — All Rights Reserved.<br>
+  🛡️ Forking, copying, or redistributing this repository without written permission is <strong>strictly prohibited</strong>.<br>
+  📧 For collaboration or usage inquiries: <a href="mailto:a.shihab@hotmail.com">a.shihab@hotmail.com</a>
+</p>
+
+---
