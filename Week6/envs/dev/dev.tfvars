@@ -65,7 +65,3 @@ db_name           = "devdb"
 db_username       = "admin"
 alb_arn_suffix = "placeholder-alb"
 project        = "my-project"
-
-# ⚠️ Never commit plain-text passwords in Git repos
-# Better: store in AWS Secrets Manager or SSM Parameter Store
-db_password = "YourStrongPassword123!"
