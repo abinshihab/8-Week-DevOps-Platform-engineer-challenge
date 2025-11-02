@@ -185,15 +185,3 @@ variable "allowed_ssh_cidr" {
   default     = null
 }
 
-variable "my_trusted_ip" {
-  description = "My trusted IP address (default from SSM)"
-  type        = string
-  default     = null
-}
-
-# Generic environment variables (optional)
-variable "environment" {
-  description = "Deployment environment (e.g., dev, stage, prod)"
-  type        = string
-  default     = "dev"
-}
