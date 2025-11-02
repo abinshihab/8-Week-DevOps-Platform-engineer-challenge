@@ -179,9 +179,3 @@ variable "db_password" {
   default     = null
 }
 
-variable "allowed_ssh_cidr" {
-  description = "Allowed SSH CIDR range (default from SSM)"
-  type        = string
-  default     = null
-}
-
