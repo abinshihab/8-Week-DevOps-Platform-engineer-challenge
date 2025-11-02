@@ -147,10 +147,6 @@ variable "db_username" {
   type        = string
 }
 
-variable "db_password" {
-  description = "Database password"
-  type        = string
-}
 
 variable "alb_arn_suffix" {
   description = "ARN suffix for the ALB (used in CloudWatch alarms and ASG integration)"
@@ -175,4 +171,6 @@ variable "db_engine" {
   type        = string
   
 }
-
+variable "db_password" {
+  default = data.aws_ssm_parameter.db_password.value
+}
