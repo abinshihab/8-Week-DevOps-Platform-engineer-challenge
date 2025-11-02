@@ -205,26 +205,52 @@ module "rds" {
   tags     = var.tags
 }
 
-# --- Fetch secure password from AWS SSM Parameter Store ---
+#############################################
+# --- Fetch secure parameters from AWS SSM Parameter Store ---
+#############################################
+
+# Database password (SecureString)
 data "aws_ssm_parameter" "db_password" {
   name            = "/cloudmind/dev/db_password"
   with_decryption = true
 }
 
-# --- Define variable as sensitive (optional but good practice) ---
-variable "db_password" {
-  description = "Database password (fetched securely from SSM)"
-  type        = string
-  sensitive   = true
-  default     = data.aws_ssm_parameter.db_password.value
+# Allowed SSH CIDR (String)
+data "aws_ssm_parameter" "allowed_ssh_cidr" {
+  name = "/cloudmind/dev/allowed_ssh_cidr"
 }
 
-# --- Use the password in your resource ---
-resource "aws_db_instance" "app_db" {
-  engine               = "mysql"
-  instance_class       = "db.t3.micro"
-  username             = "admin"
-  password             = var.db_password
-  allocated_storage    = 20
-  skip_final_snapshot  = true
+# Trusted IP (String)
+data "aws_ssm_parameter" "my_trusted_ip" {
+  name = "/cloudmind/dev/my_trusted_ip"
 }
+
+
+#############################################
+# --- Combine variable + SSM logic ---
+#############################################
+
+locals {
+  final_db_password    = var.db_password    != null ? var.db_password    : data.aws_ssm_parameter.db_password.value
+  final_allowed_cidr    = var.allowed_ssh_cidr != null ? var.allowed_ssh_cidr : data.aws_ssm_parameter.allowed_ssh_cidr.value
+  final_my_trusted_ip   = var.my_trusted_ip != null ? var.my_trusted_ip : data.aws_ssm_parameter.my_trusted_ip.value
+}
+
+#############################################
+# --- Use parameters in resources ---
+#############################################
+
+# Example 1: Database Instance (uses password)
+resource "aws_db_instance" "app_db" {
+  engine              = "mysql"
+  instance_class      = "db.t3.micro"
+  username            = "admin"
+  password            = local.final_db_password
+  allocated_storage   = 20
+  skip_final_snapshot = true
+
+  tags = {
+    Name = "cloudmind-dev-db"
+  }
+}
+
