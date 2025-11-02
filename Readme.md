@@ -118,7 +118,11 @@ Documentation for portfolio & GitHub showcase
 Contact / Community
 LinkedIn: 
 Questions, feedback, or tips are welcome!
+```
 
+---
+
+## License
 ---
 ---
 
