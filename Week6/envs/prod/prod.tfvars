@@ -35,7 +35,7 @@ enable_dns_hostnames = true
 tags = {
   Environment = "prod"
   Owner       = "Ahmed Bin Shehab"
-  Project     = "8-week-cloud-challenge"
+  Project     = "cm8weeks"
 }
 
 # ===========================
@@ -57,6 +57,6 @@ enable_request_based_scaling = true
 db_engine         = "mysql"
 db_engine_version = "8.0.36"
 db_instance_class = "db.t3.micro"
-db_name           = "cloudmind_prod_db"
+db_name           = "challenge8w-prod-db"
 db_username       = "admin"
 
