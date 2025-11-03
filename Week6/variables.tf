@@ -140,7 +140,7 @@ variable "enable_request_based_scaling" {
 variable "project" {
   description = "Project name or prefix for resources"
   type        = string
-  default     = "8-week-cloud-challenge"
+  default     = "cc8week"
 }
 
 variable "db_username" {
