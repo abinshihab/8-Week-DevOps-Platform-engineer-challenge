@@ -1,9 +1,16 @@
 pipeline {
     agent any
 
+    parameters {
+        choice(name: 'TARGET_ENV', choices: ['dev', 'stage', 'prod'], description: 'Select the deployment environment')
+        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: 'Apply Terraform changes automatically')
+        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: 'Rollback infrastructure if apply fails')
+    }
+
     environment {
-        TF_VAR_FILE = "envs/dev/dev.tfvars"
+        ENV = "${params.TARGET_ENV}"
         TF_DIR = "${WORKSPACE}/Week6"
+        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
     }
 
     stages {
@@ -39,7 +46,7 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    echo "🚀 Initializing Terraform..."
+                    echo "🚀 Initializing Terraform for environment: ${ENV}"
                     sh "terraform init -reconfigure -input=false -var-file=${TF_VAR_FILE}"
                 }
             }
@@ -57,7 +64,7 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 dir("${TF_DIR}") {
-                    echo "📋 Running Terraform Plan..."
+                    echo "📋 Running Terraform Plan for ${ENV}..."
                     withCredentials([
                         string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
                         string(credentialsId: 'allowed_ssh_cidr', variable: 'ALLOWED_SSH_CIDR')
@@ -76,16 +83,39 @@ pipeline {
             }
         }
 
+        stage('Manual Approval (for prod)') {
+            when {
+                expression { params.TARGET_ENV == 'prod' }
+            }
+            steps {
+                input message: "Approve deployment to PROD environment?", ok: "Deploy"
+            }
+        }
+
         stage('Terraform Apply') {
             when { expression { return params.APPLY_INFRA == true } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "⚡ Applying Terraform Plan..."
+                    echo "⚡ Applying Terraform for ${ENV}..."
                     withCredentials([
                         string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
                         string(credentialsId: 'allowed_ssh_cidr', variable: 'ALLOWED_SSH_CIDR')
                     ]) {
-                        sh "terraform apply -input=false tfplan"
+                        sh """
+                        set +e
+                        terraform apply -input=false tfplan
+                        APPLY_STATUS=$?
+                        set -e
+
+                        if [ $APPLY_STATUS -ne 0 ]; then
+                            echo "❌ Apply failed for ${ENV}"
+                            if [ "${params.ROLLBACK_ON_FAILURE}" == "true" ]; then
+                                echo "🔁 Rolling back ${ENV} infrastructure..."
+                                terraform destroy -auto-approve -var-file=${TF_VAR_FILE}
+                            fi
+                            exit 1
+                        fi
+                        """
                     }
                 }
             }
@@ -100,12 +130,12 @@ pipeline {
                     withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
                         sh """
                         curl -X POST -H 'Content-type: application/json' \
-                        --data '{"text": "✅ Terraform Pipeline succeeded for ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
+                        --data '{"text": "✅ Terraform Pipeline succeeded for *${ENV}* environment - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
                         "${SLACK_WEBHOOK_URL}"
                         """
                     }
                 } catch (e) {
-                    echo "ℹ️ Slack credential 'slack_webhook_url' not set. Skipping Slack notification."
+                    echo "ℹ️ Slack credential not found, skipping notification."
                 }
             }
         }
@@ -117,18 +147,18 @@ pipeline {
                     withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
                         sh """
                         curl -X POST -H 'Content-type: application/json' \
-                        --data '{"text": "❌ Terraform Pipeline failed for ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
+                        --data '{"text": "❌ Terraform Pipeline failed for *${ENV}* environment - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
                         "${SLACK_WEBHOOK_URL}"
                         """
                     }
                 } catch (e) {
-                    echo "ℹ️ Slack credential 'slack_webhook_url' not set. Skipping Slack notification."
+                    echo "ℹ️ Slack credential not found, skipping notification."
                 }
             }
         }
 
         always {
-            echo "🔔 Pipeline finished!"
+            echo "🔔 Pipeline finished (Environment: ${ENV})"
         }
     }
 }
