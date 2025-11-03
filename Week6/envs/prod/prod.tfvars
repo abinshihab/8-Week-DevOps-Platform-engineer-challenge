@@ -53,11 +53,6 @@ compute_mode     = "asg"
 # Enable ALB request-based scaling
 enable_request_based_scaling = true
 
-# --- Environment: PROD ---
-aws_region       = "us-east-1"
-environment      = "prod"
-project          = "cloudmind"
-
 # --- Database configuration ---
 db_engine         = "mysql"
 db_engine_version = "8.0.36"
