@@ -35,7 +35,7 @@ enable_dns_hostnames = true
 tags = {
   Environment = "prod"
   Owner       = "Ahmed Bin Shehab"
-  Project     = "cm8weeks"
+  project      = "cc8weeks"
 }
 
 # ===========================
@@ -59,4 +59,5 @@ db_engine_version = "8.0.36"
 db_instance_class = "db.t3.micro"
 db_name           = "challenge8w-prod-db"
 db_username       = "admin"
+
 
