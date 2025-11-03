@@ -35,7 +35,7 @@ enable_dns_hostnames = true
 tags = {
   Environment = "dev"
   Owner       = "Ahmed Bin Shehab"
-  Project     = "8-week-cloud-challenge"
+  Project     = "cc8week"
 }
 
 # ===========================

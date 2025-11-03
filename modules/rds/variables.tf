@@ -6,6 +6,8 @@
 variable "project" {
   description = "Project name (must start with a lowercase letter, e.g., cc8weeks)"
   type        = string
+  default     = "cc8week"
+
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]*$", var.project))
