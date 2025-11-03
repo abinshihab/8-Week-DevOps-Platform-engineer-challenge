@@ -140,6 +140,7 @@ variable "enable_request_based_scaling" {
 variable "project" {
   description = "Project name or prefix for resources"
   type        = string
+  default     = "8-week-cloud-challenge"
 }
 
 variable "db_username" {
@@ -151,6 +152,8 @@ variable "db_username" {
 variable "alb_arn_suffix" {
   description = "ARN suffix for the ALB (used in CloudWatch alarms and ASG integration)"
   type        = string
+  default     = "placeholder"
+
 }
 variable "db_instance_class" {
   description = "Instance class for RDS (e.g. db.t3.micro)"
