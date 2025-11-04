@@ -28,7 +28,7 @@ resource "aws_db_instance" "db" {
 
   # --- Credentials ---
   username               = var.username
-  password               = var.password
+ password               = data.aws_ssm_parameter.db_password.value
 
   # --- Network Settings ---
   db_subnet_group_name   = aws_db_subnet_group.this.name
