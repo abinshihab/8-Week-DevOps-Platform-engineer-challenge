@@ -197,8 +197,8 @@ module "rds" {
   source           = "../modules/rds"
   project          = var.project
   environment      = var.environment
-  private_subnets  = module.vpc.private_subnets     
-  security_groups  = [module.security.db_sg_id]      
+  private_subnets  = module.vpc.private_subnets      
+  security_groups  = [module.security.db_sg_id]    
   username         = var.db_username
   password         = var.db_password
   tags             = var.tags
@@ -239,18 +239,4 @@ locals {
 #############################################
 # --- Use parameters in resources ---
 #############################################
-
-# Example 1: Database Instance (uses password)
-resource "aws_db_instance" "app_db" {
-  engine              = "mysql"
-  instance_class      = "db.t3.micro"
-  username            = "admin"
-  password            = local.final_db_password
-  allocated_storage   = 20
-  skip_final_snapshot = true
-
-  tags = {
-    Name = "cloudmind-dev-db"
-  }
-}
 
