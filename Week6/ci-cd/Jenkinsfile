@@ -4,6 +4,7 @@ pipeline {
     parameters {
         choice(name: 'TARGET_ENV', choices: ['dev', 'stage', 'prod'], description: 'Select the deployment environment')
         booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: 'Apply Terraform changes automatically')
+        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: 'Destroy infrastructure for selected environment')
         booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: 'Rollback infrastructure if apply fails')
     }
 
@@ -22,6 +23,7 @@ pipeline {
         }
 
         stage('Parallel Checks') {
+            when { expression { return !params.DESTROY_INFRA } }
             parallel {
                 stage('Terraform Lint') {
                     steps {
@@ -53,6 +55,7 @@ pipeline {
         }
 
         stage('Terraform Validate') {
+            when { expression { return !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
                     echo "🔎 Validating Terraform configuration..."
@@ -62,6 +65,7 @@ pipeline {
         }
 
         stage('Terraform Plan') {
+            when { expression { return !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
                     echo "📋 Running Terraform Plan for ${ENV}..."
@@ -85,15 +89,21 @@ pipeline {
 
         stage('Manual Approval (for prod)') {
             when {
-                expression { params.TARGET_ENV == 'prod' }
+                allOf {
+                    expression { params.TARGET_ENV == 'prod' }
+                    expression { !params.DESTROY_INFRA }
+                }
             }
             steps {
-                input message: "Approve deployment to PROD environment?", ok: "Deploy"
+                input message: "⚠️ Approve deployment to *PROD* environment?", ok: "Deploy"
             }
         }
 
         stage('Terraform Apply') {
-            when { expression { return params.APPLY_INFRA == true } }
+            when { allOf {
+                expression { return params.APPLY_INFRA == true }
+                expression { return !params.DESTROY_INFRA }
+            }}
             steps {
                 dir("${TF_DIR}") {
                     echo "⚡ Applying Terraform for ${ENV}..."
@@ -101,20 +111,37 @@ pipeline {
                         string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
                         string(credentialsId: 'allowed_ssh_cidr', variable: 'ALLOWED_SSH_CIDR')
                     ]) {
-                        sh """
-                        set +e
-                        terraform apply -input=false tfplan
-                        APPLY_STATUS=\$?
-                        set -e
+                        script {
+                            def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
+                            if (applyStatus != 0) {
+                                echo "❌ Apply failed for ${ENV}"
+                                if (params.ROLLBACK_ON_FAILURE) {
+                                    echo "🔁 Rolling back ${ENV} infrastructure..."
+                                    sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
+                                }
+                                error("Terraform apply failed with status ${applyStatus}")
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-                        if [ \$APPLY_STATUS -ne 0 ]; then
-                            echo "❌ Apply failed for ${ENV}"
-                            if [ "\${params.ROLLBACK_ON_FAILURE}" == "true" ]; then
-                                echo "🔁 Rolling back ${ENV} infrastructure..."
-                                terraform destroy -auto-approve -var-file=${TF_VAR_FILE}
-                            fi
-                            exit 1
-                        fi
+        stage('Terraform Destroy') {
+            when { expression { return params.DESTROY_INFRA == true } }
+            steps {
+                dir("${TF_DIR}") {
+                    input message: "💣 Confirm destroy of ${ENV} environment?", ok: "Yes, destroy it!"
+                    echo "🔥 Destroying Terraform-managed resources for ${ENV}..."
+                    withCredentials([
+                        string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
+                        string(credentialsId: 'allowed_ssh_cidr', variable: 'ALLOWED_SSH_CIDR')
+                    ]) {
+                        sh """
+                        terraform destroy -auto-approve \
+                            -var-file=${TF_VAR_FILE} \
+                            -var="my_trusted_ip=\${MY_TRUSTED_IP}" \
+                            -var="allowed_ssh_cidr=\${ALLOWED_SSH_CIDR}"
                         """
                     }
                 }
