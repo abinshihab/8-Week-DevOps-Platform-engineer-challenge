@@ -2,10 +2,26 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'TARGET_ENV', choices: ['dev', 'stage', 'prod'], description: 'Select the deployment environment')
-        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: 'Apply Terraform changes automatically')
-        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: 'Destroy infrastructure for selected environment')
-        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: 'Rollback infrastructure if apply fails')
+        choice(
+            name: 'TARGET_ENV',
+            choices: ['dev', 'stage', 'prod'],
+            description: 'Select the deployment environment'
+        )
+        booleanParam(
+            name: 'APPLY_INFRA',
+            defaultValue: false,
+            description: '✅ Apply Terraform changes automatically'
+        )
+        booleanParam(
+            name: 'DESTROY_INFRA',
+            defaultValue: false,
+            description: '💣 Destroy infrastructure for selected environment (with confirmation prompt)'
+        )
+        booleanParam(
+            name: 'ROLLBACK_ON_FAILURE',
+            defaultValue: true,
+            description: '🔁 Rollback infrastructure if apply fails'
+        )
     }
 
     environment {
@@ -15,6 +31,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout SCM') {
             steps {
                 echo "🔄 Checking out code..."
@@ -75,10 +92,10 @@ pipeline {
                     ]) {
                         sh """
                         terraform plan -input=false \
-                            -var-file=${TF_VAR_FILE} \
-                            -var="my_trusted_ip=\${MY_TRUSTED_IP}" \
-                            -var="allowed_ssh_cidr=\${ALLOWED_SSH_CIDR}" \
-                            -out=tfplan
+                          -var-file=${TF_VAR_FILE} \
+                          -var="my_trusted_ip=\${MY_TRUSTED_IP}" \
+                          -var="allowed_ssh_cidr=\${ALLOWED_SSH_CIDR}" \
+                          -out=tfplan
                         terraform show -no-color tfplan > tfplan.txt
                         """
                     }
@@ -131,7 +148,7 @@ pipeline {
             when { expression { return params.DESTROY_INFRA == true } }
             steps {
                 dir("${TF_DIR}") {
-                    input message: "💣 Confirm destroy of ${ENV} environment?", ok: "Yes, destroy it!"
+                    input message: "💣 Confirm destroy of *${ENV}* environment?", ok: "Yes, destroy it!"
                     echo "🔥 Destroying Terraform-managed resources for ${ENV}..."
                     withCredentials([
                         string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
@@ -139,9 +156,9 @@ pipeline {
                     ]) {
                         sh """
                         terraform destroy -auto-approve \
-                            -var-file=${TF_VAR_FILE} \
-                            -var="my_trusted_ip=\${MY_TRUSTED_IP}" \
-                            -var="allowed_ssh_cidr=\${ALLOWED_SSH_CIDR}"
+                          -var-file=${TF_VAR_FILE} \
+                          -var="my_trusted_ip=\${MY_TRUSTED_IP}" \
+                          -var="allowed_ssh_cidr=\${ALLOWED_SSH_CIDR}"
                         """
                     }
                 }
@@ -151,13 +168,16 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline finished successfully!"
+            echo "✅ Pipeline finished successfully for ${ENV}!"
             script {
                 try {
                     withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
+                        def msg = params.DESTROY_INFRA ?
+                            "💣 Terraform Destroy completed for *${ENV}*" :
+                            "✅ Terraform Apply succeeded for *${ENV}*"
                         sh """
                         curl -X POST -H 'Content-type: application/json' \
-                        --data '{"text": "✅ Terraform Pipeline succeeded for *${ENV}* environment - Job: \${env.JOB_NAME} #\${env.BUILD_NUMBER}"}' \
+                        --data '{"text": "${msg} - Job: \${env.JOB_NAME} #\${env.BUILD_NUMBER}"}' \
                         "\${SLACK_WEBHOOK_URL}"
                         """
                     }
@@ -168,13 +188,13 @@ pipeline {
         }
 
         failure {
-            echo "❌ Pipeline failed!"
+            echo "❌ Pipeline failed for ${ENV}!"
             script {
                 try {
                     withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
                         sh """
                         curl -X POST -H 'Content-type: application/json' \
-                        --data '{"text": "❌ Terraform Pipeline failed for *${ENV}* environment - Job: \${env.JOB_NAME} #\${env.BUILD_NUMBER}"}' \
+                        --data '{"text": "❌ Terraform Pipeline failed for *${ENV}* - Job: \${env.JOB_NAME} #\${env.BUILD_NUMBER}"}' \
                         "\${SLACK_WEBHOOK_URL}"
                         """
                     }
