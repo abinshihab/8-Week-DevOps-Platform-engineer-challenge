@@ -23,7 +23,7 @@ resource "aws_db_instance" "db" {
   allocated_storage      = var.allocated_storage
   max_allocated_storage  = var.max_allocated_storage
   engine                 = var.engine
-  engine_version         = "8.0.35"                   # ✅ Valid MySQL version
+  engine_version         = "8.4.4"                   
   instance_class         = var.instance_class
 
   # --- Credentials ---
