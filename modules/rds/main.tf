@@ -16,14 +16,14 @@ resource "aws_db_subnet_group" "this" {
 
 # --- RDS Database Instance ---
 resource "aws_db_instance" "db" {
-  # Safe, AWS-compliant, starts with a letter, lowercase only
+  # ✅ Safe identifier (AWS-compliant, starts with a letter)
   identifier             = lower("rds-${trimspace(var.project)}-${trimspace(var.environment)}-db")
 
   # --- Core Configuration ---
   allocated_storage      = var.allocated_storage
   max_allocated_storage  = var.max_allocated_storage
   engine                 = var.engine
-  engine_version         = var.engine_version
+  engine_version         = "8.0.35"                   # ✅ Valid MySQL version
   instance_class         = var.instance_class
 
   # --- Credentials ---
@@ -40,6 +40,11 @@ resource "aws_db_instance" "db" {
   # --- Backup & Lifecycle ---
   backup_retention_period = var.backup_retention_period
   deletion_protection     = false
+
+  # --- Dependencies ---
+  depends_on = [
+    aws_db_subnet_group.this      # ✅ ensures subnet group is ready
+  ]
 
   # --- Tags ---
   tags = merge(var.tags, {

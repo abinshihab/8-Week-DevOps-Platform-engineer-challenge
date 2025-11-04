@@ -194,16 +194,16 @@ module "cloudwatch_alerts" {
 ############################################
 
 module "rds" {
-  source          = "../modules/rds"
-  project         = var.project
-  environment     = var.environment
-  private_subnets = module.vpc.private_subnets
-  security_groups = [module.security.db_sg_id]
-
-  username = var.db_username
-  password = var.db_password
-  tags     = var.tags
+  source           = "../modules/rds"
+  project          = var.project
+  environment      = var.environment
+  private_subnets  = module.vpc.private_subnets     
+  security_groups  = [module.security.db_sg_id]      
+  username         = var.db_username
+  password         = var.db_password
+  tags             = var.tags
 }
+
 
 #############################################
 # --- Fetch secure parameters from AWS SSM Parameter Store ---
