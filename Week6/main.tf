@@ -201,6 +201,7 @@ module "rds" {
   security_groups  = [module.security.db_sg_id]    
   username         = var.db_username
   password         = var.db_password
+  env              = var.env 
   tags             = var.tags
 }
 

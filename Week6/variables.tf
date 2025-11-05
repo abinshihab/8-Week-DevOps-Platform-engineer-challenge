@@ -182,3 +182,7 @@ variable "db_password" {
   default     = null
 }
 
+variable "env" {
+  description = "Environment name (dev, stage, prod)"
+  type        = string
+}
