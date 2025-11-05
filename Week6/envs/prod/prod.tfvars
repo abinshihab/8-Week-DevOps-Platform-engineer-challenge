@@ -3,6 +3,7 @@
 # ===========================
 aws_region   = "us-east-1"
 environment  = "prod"
+env          = "prod"
 name         = "web-asg"
 
 # ===========================
