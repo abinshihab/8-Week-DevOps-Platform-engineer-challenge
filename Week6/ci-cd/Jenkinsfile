@@ -164,6 +164,44 @@ pipeline {
                 }
             }
         }
+
+        // 🆕 Added Stage: Auto-Promotion from DEV → STAGE
+        stage('Promote to Stage') {
+            when {
+                allOf {
+                    expression { params.TARGET_ENV == 'dev' }
+                    expression { currentBuild.currentResult == 'SUCCESS' }
+                }
+            }
+            steps {
+                echo "🚀 Dev deployment successful — promoting to Stage..."
+                build job: env.JOB_NAME,
+                  parameters: [
+                      string(name: 'TARGET_ENV', value: 'stage'),
+                      booleanParam(name: 'APPLY_INFRA', value: true)
+                  ],
+                  wait: false
+            }
+        }
+
+        // 🆕 Added Stage: Manual Promotion from STAGE → PROD
+        stage('Promote to Prod') {
+            when {
+                allOf {
+                    expression { params.TARGET_ENV == 'stage' }
+                    expression { currentBuild.currentResult == 'SUCCESS' }
+                }
+            }
+            steps {
+                input message: "🚦 Approve promotion to *PROD*?", ok: "Proceed"
+                build job: env.JOB_NAME,
+                  parameters: [
+                      string(name: 'TARGET_ENV', value: 'prod'),
+                      booleanParam(name: 'APPLY_INFRA', value: true)
+                  ],
+                  wait: false
+            }
+        }
     }
 
     post {
