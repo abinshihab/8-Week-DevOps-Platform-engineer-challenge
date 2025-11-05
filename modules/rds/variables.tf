@@ -93,3 +93,8 @@ variable "backup_retention_period" {
   type        = number
   default     = 7
 }
+
+variable "env" {
+  description = "Environment name (dev, stage, prod)"
+  type        = string
+}

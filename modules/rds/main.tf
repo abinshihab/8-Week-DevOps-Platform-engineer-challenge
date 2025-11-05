@@ -28,7 +28,7 @@ resource "aws_db_instance" "db" {
 
   # --- Credentials ---
   username               = var.username
- password               = data.aws_ssm_parameter.db_password.value
+  password               = data.aws_ssm_parameter.db_password.value
 
   # --- Network Settings ---
   db_subnet_group_name   = aws_db_subnet_group.this.name
@@ -54,4 +54,7 @@ resource "aws_db_instance" "db" {
     ManagedBy = "Terraform"
   })
 }
-
+data "aws_ssm_parameter" "db_password" {
+  name            = "/cloudmind/${var.env}/db_password"
+  with_decryption = true
+}
