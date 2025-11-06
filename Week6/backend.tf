@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     # Your S3 bucket for storing Terraform state
-    bucket = "my-terraform-state-bucket"
+    bucket = "cc8weeks-terraform-state"
 
     # Environment-specific state path (keeps dev/stage/prod isolated)
     key    = "state/${var.env}/terraform.tfstate"
