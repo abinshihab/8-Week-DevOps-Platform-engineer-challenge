@@ -62,11 +62,16 @@ pipeline {
             }
         }
 
+        // ✅ Updated Terraform Init Stage with backend.conf support
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
                     echo "🚀 Initializing Terraform for environment: ${ENV}"
-                    sh "terraform init -reconfigure -input=false -var-file=${TF_VAR_FILE}"
+                    sh """
+                    terraform init -reconfigure -input=false \
+                      -backend-config=envs/${ENV}/backend.conf \
+                      -var-file=${TF_VAR_FILE}
+                    """
                 }
             }
         }
@@ -117,10 +122,12 @@ pipeline {
         }
 
         stage('Terraform Apply') {
-            when { allOf {
-                expression { return params.APPLY_INFRA == true }
-                expression { return !params.DESTROY_INFRA }
-            }}
+            when {
+                allOf {
+                    expression { return params.APPLY_INFRA == true }
+                    expression { return !params.DESTROY_INFRA }
+                }
+            }
             steps {
                 dir("${TF_DIR}") {
                     echo "⚡ Applying Terraform for ${ENV}..."
@@ -165,7 +172,7 @@ pipeline {
             }
         }
 
-        // 🆕 Added Stage: Auto-Promotion from DEV → STAGE
+        // 🆕 Auto-Promotion from DEV → STAGE
         stage('Promote to Stage') {
             when {
                 allOf {
@@ -176,15 +183,15 @@ pipeline {
             steps {
                 echo "🚀 Dev deployment successful — promoting to Stage..."
                 build job: env.JOB_NAME,
-                  parameters: [
-                      string(name: 'TARGET_ENV', value: 'stage'),
-                      booleanParam(name: 'APPLY_INFRA', value: true)
-                  ],
-                  wait: false
+                    parameters: [
+                        string(name: 'TARGET_ENV', value: 'stage'),
+                        booleanParam(name: 'APPLY_INFRA', value: true)
+                    ],
+                    wait: false
             }
         }
 
-        // 🆕 Added Stage: Manual Promotion from STAGE → PROD
+        // 🆕 Manual Promotion from STAGE → PROD
         stage('Promote to Prod') {
             when {
                 allOf {
@@ -195,11 +202,11 @@ pipeline {
             steps {
                 input message: "🚦 Approve promotion to *PROD*?", ok: "Proceed"
                 build job: env.JOB_NAME,
-                  parameters: [
-                      string(name: 'TARGET_ENV', value: 'prod'),
-                      booleanParam(name: 'APPLY_INFRA', value: true)
-                  ],
-                  wait: false
+                    parameters: [
+                        string(name: 'TARGET_ENV', value: 'prod'),
+                        booleanParam(name: 'APPLY_INFRA', value: true)
+                    ],
+                    wait: false
             }
         }
     }
