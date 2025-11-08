@@ -7,19 +7,19 @@ pipeline {
             choices: ['dev', 'stage', 'prod'],
             description: 'Select the deployment environment'
         )
-        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '✅ Apply Terraform changes automatically')
-        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy infrastructure for selected environment (with confirmation prompt)')
+        booleanParam(name: 'APPLY_INFRA',   defaultValue: false, description: '✅ Apply Terraform changes automatically')
+        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy infrastructure for selected environment')
         booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback infrastructure if apply fails')
     }
 
     environment {
-        ENV = "${params.TARGET_ENV}"
-        TF_DIR = "${WORKSPACE}/Week6"
-        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
-        AWS_REGION = "us-east-1"
+        ENV          = "${params.TARGET_ENV}"
+        TF_DIR       = "${WORKSPACE}/Week6"
+        TF_VAR_FILE  = "envs/${ENV}/${ENV}.tfvars"
+        AWS_REGION   = "us-east-1"
     }
 
-    // ✅ Day 42 best practices
+    // ✅ New Jenkins best-practice options
     options {
         timestamps()
         ansiColor('xterm')
@@ -31,22 +31,22 @@ pipeline {
 
         stage('Checkout SCM') {
             steps {
-                echo "🔄 Checking out code..."
+                echo "🔄 Checking out source code..."
                 checkout scm
             }
         }
 
         stage('Parallel Checks') {
-            when { expression { return !params.DESTROY_INFRA } }
+            when { expression { !params.DESTROY_INFRA } }
             parallel {
-                stage('Terraform Lint') {
+                stage('Terraform Fmt') {
                     steps {
                         dir("${TF_DIR}") {
                             sh "terraform fmt -check -recursive || true"
                         }
                     }
                 }
-                stage('Security Scan (tfsec)') {
+                stage('tfsec Security Scan') {
                     steps {
                         dir("${TF_DIR}") {
                             sh "tfsec . || true"
@@ -59,8 +59,8 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    echo "🚀 Initializing Terraform for environment: ${ENV}"
-                    // ✅ Added versioned state key line
+                    echo "🚀 Initializing Terraform for ${ENV}"
+                    // ✅ Added state key for per-environment versioning
                     sh """
                     terraform init -reconfigure -input=false \
                       -backend-config=envs/${ENV}/backend.conf \
@@ -72,7 +72,7 @@ pipeline {
         }
 
         stage('Terraform Validate') {
-            when { expression { return !params.DESTROY_INFRA } }
+            when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
                     sh "terraform validate"
@@ -81,24 +81,23 @@ pipeline {
         }
 
         stage('Terraform Plan') {
-            when { expression { return !params.DESTROY_INFRA } }
+            when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "📋 Running Terraform Plan for ${ENV}..."
-                    // ✅ Parameter Store values now fetched directly by Terraform (no secrets in Jenkins)
+                    echo "📋 Creating Terraform plan for ${ENV}..."
                     sh """
                     terraform plan -input=false \
                       -var-file=${TF_VAR_FILE} \
                       -out=tfplan
                     terraform show -no-color tfplan > tfplan.txt
                     """
-                    // ✅ Archive plan artifact for traceability
+                    // ✅ Archive plan for audit/debug
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
                 }
             }
         }
 
-        stage('Manual Approval (for prod)') {
+        stage('Manual Approval (for PROD)') {
             when {
                 allOf {
                     expression { params.TARGET_ENV == 'prod' }
@@ -113,25 +112,24 @@ pipeline {
         stage('Terraform Apply') {
             when {
                 allOf {
-                    expression { return params.APPLY_INFRA == true }
-                    expression { return !params.DESTROY_INFRA }
+                    expression { params.APPLY_INFRA }
+                    expression { !params.DESTROY_INFRA }
                 }
             }
             steps {
                 dir("${TF_DIR}") {
                     echo "⚡ Applying Terraform for ${ENV}..."
                     script {
-                        // ✅ Run apply, catch status for rollback logic
+                        // ✅ Capture status to trigger rollback if needed
                         def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
                         if (applyStatus != 0) {
-                            echo "❌ Apply failed for ${ENV}"
+                            echo "❌ Terraform apply failed for ${ENV}"
                             if (params.ROLLBACK_ON_FAILURE) {
                                 echo "🔁 Rolling back ${ENV} infrastructure..."
                                 sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
-                                // ✅ Optional Slack notice for rollback
-                                notifySlack("⚠️ Rollback triggered for *${ENV}* due to apply failure")
+                                notifySlack("⚠️ Rollback triggered for *${ENV}* after failed apply")
                             }
-                            error("Terraform apply failed with status ${applyStatus}")
+                            error("Terraform apply failed with exit code ${applyStatus}")
                         }
                     }
                 }
@@ -139,20 +137,19 @@ pipeline {
         }
 
         stage('Terraform Destroy') {
-            when { expression { return params.DESTROY_INFRA == true } }
+            when { expression { params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
                     input message: "💣 Confirm destroy of *${ENV}* environment?", ok: "Yes, destroy it!"
-                    echo "🔥 Destroying Terraform-managed resources for ${ENV}..."
+                    echo "🔥 Destroying Terraform resources for ${ENV}..."
                     sh """
-                    terraform destroy -auto-approve \
-                      -var-file=${TF_VAR_FILE}
+                    terraform destroy -auto-approve -var-file=${TF_VAR_FILE}
                     """
                 }
             }
         }
 
-        // ✅ Auto-Promotion: DEV → STAGE
+        // ✅ Auto promotion: DEV → STAGE
         stage('Promote to Stage') {
             when {
                 allOf {
@@ -163,15 +160,15 @@ pipeline {
             steps {
                 echo "🚀 Dev deployment successful — promoting to Stage..."
                 build job: env.JOB_NAME,
-                    parameters: [
-                        string(name: 'TARGET_ENV', value: 'stage'),
-                        booleanParam(name: 'APPLY_INFRA', value: true)
-                    ],
-                    wait: false
+                      parameters: [
+                          string(name: 'TARGET_ENV', value: 'stage'),
+                          booleanParam(name: 'APPLY_INFRA', value: true)
+                      ],
+                      wait: false
             }
         }
 
-        // ✅ Manual Promotion: STAGE → PROD
+        // ✅ Manual promotion: STAGE → PROD
         stage('Promote to Prod') {
             when {
                 allOf {
@@ -182,38 +179,38 @@ pipeline {
             steps {
                 input message: "🚦 Approve promotion to *PROD*?", ok: "Proceed"
                 build job: env.JOB_NAME,
-                    parameters: [
-                        string(name: 'TARGET_ENV', value: 'prod'),
-                        booleanParam(name: 'APPLY_INFRA', value: true)
-                    ],
-                    wait: false
+                      parameters: [
+                          string(name: 'TARGET_ENV', value: 'prod'),
+                          booleanParam(name: 'APPLY_INFRA', value: true)
+                      ],
+                      wait: false
             }
         }
     }
 
     post {
         success {
-            echo "✅ Pipeline finished successfully for ${ENV}!"
+            echo "✅ Pipeline completed successfully for ${ENV}"
             script { notifySlack("✅ Terraform Apply succeeded for *${ENV}*") }
         }
 
         failure {
-            echo "❌ Pipeline failed for ${ENV}!"
+            echo "❌ Pipeline failed for ${ENV}"
             script { notifySlack("❌ Terraform Pipeline failed for *${ENV}*") }
         }
 
         always {
             echo "📦 Archiving artifacts and cleaning workspace..."
-            // ✅ Keep plan file for debugging even on failure
+            // ✅ Keep tfplan.txt on failure too
             archiveArtifacts artifacts: '**/tfplan.txt', onlyIfSuccessful: false
-            // ✅ Cleanup workspace after every run
+            // ✅ Clean workspace after every build
             cleanWs(deleteDirs: true)
         }
     }
 }
 
 /**
- * ✅ Helper Function – Slack Notification
+ * ✅ Slack Notification Helper
  */
 def notifySlack(String message) {
     try {
@@ -225,6 +222,6 @@ def notifySlack(String message) {
             """
         }
     } catch (err) {
-        echo "ℹ️ Slack credentials not configured; skipping notification."
+        echo "ℹ️ Slack webhook not configured; skipping notification."
     }
 }
