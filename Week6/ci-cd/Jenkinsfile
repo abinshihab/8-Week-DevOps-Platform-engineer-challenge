@@ -13,16 +13,14 @@ pipeline {
     }
 
     environment {
-        ENV          = "${params.TARGET_ENV}"
-        TF_DIR       = "${WORKSPACE}/Week6"
-        TF_VAR_FILE  = "envs/${ENV}/${ENV}.tfvars"
-        AWS_REGION   = "us-east-1"
+        ENV         = "${params.TARGET_ENV}"
+        TF_DIR      = "${WORKSPACE}/Week6"
+        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
+        AWS_REGION  = "us-east-1"
     }
 
-    // ✅ New Jenkins best-practice options
     options {
         timestamps()
-        ansiColor('xterm')
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
@@ -46,7 +44,7 @@ pipeline {
                         }
                     }
                 }
-                stage('tfsec Security Scan') {
+                stage('Security Scan (tfsec)') {
                     steps {
                         dir("${TF_DIR}") {
                             sh "tfsec . || true"
@@ -59,8 +57,7 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    echo "🚀 Initializing Terraform for ${ENV}"
-                    // ✅ Added state key for per-environment versioning
+                    echo "🚀 Initializing Terraform backend for ${ENV}"
                     sh """
                     terraform init -reconfigure -input=false \
                       -backend-config=envs/${ENV}/backend.conf \
@@ -91,7 +88,6 @@ pipeline {
                       -out=tfplan
                     terraform show -no-color tfplan > tfplan.txt
                     """
-                    // ✅ Archive plan for audit/debug
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
                 }
             }
@@ -120,7 +116,6 @@ pipeline {
                 dir("${TF_DIR}") {
                     echo "⚡ Applying Terraform for ${ENV}..."
                     script {
-                        // ✅ Capture status to trigger rollback if needed
                         def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
                         if (applyStatus != 0) {
                             echo "❌ Terraform apply failed for ${ENV}"
@@ -149,7 +144,7 @@ pipeline {
             }
         }
 
-        // ✅ Auto promotion: DEV → STAGE
+        // Auto-Promotion: DEV → STAGE
         stage('Promote to Stage') {
             when {
                 allOf {
@@ -168,7 +163,7 @@ pipeline {
             }
         }
 
-        // ✅ Manual promotion: STAGE → PROD
+        // Manual Promotion: STAGE → PROD
         stage('Promote to Prod') {
             when {
                 allOf {
@@ -201,16 +196,14 @@ pipeline {
 
         always {
             echo "📦 Archiving artifacts and cleaning workspace..."
-            // ✅ Keep tfplan.txt on failure too
             archiveArtifacts artifacts: '**/tfplan.txt', onlyIfSuccessful: false
-            // ✅ Clean workspace after every build
             cleanWs(deleteDirs: true)
         }
     }
 }
 
 /**
- * ✅ Slack Notification Helper
+ * Slack Notification Helper
  */
 def notifySlack(String message) {
     try {
