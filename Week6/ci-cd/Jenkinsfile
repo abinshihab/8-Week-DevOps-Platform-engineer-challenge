@@ -7,27 +7,24 @@ pipeline {
             choices: ['dev', 'stage', 'prod'],
             description: 'Select the deployment environment'
         )
-        booleanParam(
-            name: 'APPLY_INFRA',
-            defaultValue: false,
-            description: '✅ Apply Terraform changes automatically'
-        )
-        booleanParam(
-            name: 'DESTROY_INFRA',
-            defaultValue: false,
-            description: '💣 Destroy infrastructure for selected environment (with confirmation prompt)'
-        )
-        booleanParam(
-            name: 'ROLLBACK_ON_FAILURE',
-            defaultValue: true,
-            description: '🔁 Rollback infrastructure if apply fails'
-        )
+        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '✅ Apply Terraform changes automatically')
+        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy infrastructure for selected environment (with confirmation prompt)')
+        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback infrastructure if apply fails')
     }
 
     environment {
         ENV = "${params.TARGET_ENV}"
         TF_DIR = "${WORKSPACE}/Week6"
         TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
+        AWS_REGION = "us-east-1"
+    }
+
+    // ✅ Day 42 best practices
+    options {
+        timestamps()
+        ansiColor('xterm')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     stages {
@@ -45,16 +42,13 @@ pipeline {
                 stage('Terraform Lint') {
                     steps {
                         dir("${TF_DIR}") {
-                            echo "🧹 Running Terraform fmt check..."
                             sh "terraform fmt -check -recursive || true"
                         }
                     }
                 }
-
                 stage('Security Scan (tfsec)') {
                     steps {
                         dir("${TF_DIR}") {
-                            echo "🛡️ Running tfsec security scan..."
                             sh "tfsec . || true"
                         }
                     }
@@ -62,14 +56,15 @@ pipeline {
             }
         }
 
-        // ✅ Updated Terraform Init Stage with backend.conf support
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
                     echo "🚀 Initializing Terraform for environment: ${ENV}"
+                    // ✅ Added versioned state key line
                     sh """
                     terraform init -reconfigure -input=false \
                       -backend-config=envs/${ENV}/backend.conf \
+                      -backend-config=key=terraform/${ENV}/terraform.tfstate \
                       -var-file=${TF_VAR_FILE}
                     """
                 }
@@ -80,7 +75,6 @@ pipeline {
             when { expression { return !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "🔎 Validating Terraform configuration..."
                     sh "terraform validate"
                 }
             }
@@ -91,19 +85,14 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     echo "📋 Running Terraform Plan for ${ENV}..."
-                    withCredentials([
-                        string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
-                        string(credentialsId: 'allowed_ssh_cidr', variable: 'ALLOWED_SSH_CIDR')
-                    ]) {
-                        sh """
-                        terraform plan -input=false \
-                          -var-file=${TF_VAR_FILE} \
-                          -var="my_trusted_ip=\${MY_TRUSTED_IP}" \
-                          -var="allowed_ssh_cidr=\${ALLOWED_SSH_CIDR}" \
-                          -out=tfplan
-                        terraform show -no-color tfplan > tfplan.txt
-                        """
-                    }
+                    // ✅ Parameter Store values now fetched directly by Terraform (no secrets in Jenkins)
+                    sh """
+                    terraform plan -input=false \
+                      -var-file=${TF_VAR_FILE} \
+                      -out=tfplan
+                    terraform show -no-color tfplan > tfplan.txt
+                    """
+                    // ✅ Archive plan artifact for traceability
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
                 }
             }
@@ -131,20 +120,18 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     echo "⚡ Applying Terraform for ${ENV}..."
-                    withCredentials([
-                        string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
-                        string(credentialsId: 'allowed_ssh_cidr', variable: 'ALLOWED_SSH_CIDR')
-                    ]) {
-                        script {
-                            def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
-                            if (applyStatus != 0) {
-                                echo "❌ Apply failed for ${ENV}"
-                                if (params.ROLLBACK_ON_FAILURE) {
-                                    echo "🔁 Rolling back ${ENV} infrastructure..."
-                                    sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
-                                }
-                                error("Terraform apply failed with status ${applyStatus}")
+                    script {
+                        // ✅ Run apply, catch status for rollback logic
+                        def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
+                        if (applyStatus != 0) {
+                            echo "❌ Apply failed for ${ENV}"
+                            if (params.ROLLBACK_ON_FAILURE) {
+                                echo "🔁 Rolling back ${ENV} infrastructure..."
+                                sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
+                                // ✅ Optional Slack notice for rollback
+                                notifySlack("⚠️ Rollback triggered for *${ENV}* due to apply failure")
                             }
+                            error("Terraform apply failed with status ${applyStatus}")
                         }
                     }
                 }
@@ -157,22 +144,15 @@ pipeline {
                 dir("${TF_DIR}") {
                     input message: "💣 Confirm destroy of *${ENV}* environment?", ok: "Yes, destroy it!"
                     echo "🔥 Destroying Terraform-managed resources for ${ENV}..."
-                    withCredentials([
-                        string(credentialsId: 'my_trusted_ip', variable: 'MY_TRUSTED_IP'),
-                        string(credentialsId: 'allowed_ssh_cidr', variable: 'ALLOWED_SSH_CIDR')
-                    ]) {
-                        sh """
-                        terraform destroy -auto-approve \
-                          -var-file=${TF_VAR_FILE} \
-                          -var="my_trusted_ip=\${MY_TRUSTED_IP}" \
-                          -var="allowed_ssh_cidr=\${ALLOWED_SSH_CIDR}"
-                        """
-                    }
+                    sh """
+                    terraform destroy -auto-approve \
+                      -var-file=${TF_VAR_FILE}
+                    """
                 }
             }
         }
 
-        // 🆕 Auto-Promotion from DEV → STAGE
+        // ✅ Auto-Promotion: DEV → STAGE
         stage('Promote to Stage') {
             when {
                 allOf {
@@ -191,7 +171,7 @@ pipeline {
             }
         }
 
-        // 🆕 Manual Promotion from STAGE → PROD
+        // ✅ Manual Promotion: STAGE → PROD
         stage('Promote to Prod') {
             when {
                 allOf {
@@ -214,43 +194,37 @@ pipeline {
     post {
         success {
             echo "✅ Pipeline finished successfully for ${ENV}!"
-            script {
-                try {
-                    withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
-                        def msg = params.DESTROY_INFRA ?
-                            "💣 Terraform Destroy completed for *${ENV}*" :
-                            "✅ Terraform Apply succeeded for *${ENV}*"
-                        sh """
-                        curl -X POST -H 'Content-type: application/json' \
-                        --data '{"text": "${msg} - Job: \${env.JOB_NAME} #\${env.BUILD_NUMBER}"}' \
-                        "\${SLACK_WEBHOOK_URL}"
-                        """
-                    }
-                } catch (e) {
-                    echo "ℹ️ Slack credential not found, skipping notification."
-                }
-            }
+            script { notifySlack("✅ Terraform Apply succeeded for *${ENV}*") }
         }
 
         failure {
             echo "❌ Pipeline failed for ${ENV}!"
-            script {
-                try {
-                    withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
-                        sh """
-                        curl -X POST -H 'Content-type: application/json' \
-                        --data '{"text": "❌ Terraform Pipeline failed for *${ENV}* - Job: \${env.JOB_NAME} #\${env.BUILD_NUMBER}"}' \
-                        "\${SLACK_WEBHOOK_URL}"
-                        """
-                    }
-                } catch (e) {
-                    echo "ℹ️ Slack credential not found, skipping notification."
-                }
-            }
+            script { notifySlack("❌ Terraform Pipeline failed for *${ENV}*") }
         }
 
         always {
-            echo "🔔 Pipeline finished (Environment: ${ENV})"
+            echo "📦 Archiving artifacts and cleaning workspace..."
+            // ✅ Keep plan file for debugging even on failure
+            archiveArtifacts artifacts: '**/tfplan.txt', onlyIfSuccessful: false
+            // ✅ Cleanup workspace after every run
+            cleanWs(deleteDirs: true)
         }
+    }
+}
+
+/**
+ * ✅ Helper Function – Slack Notification
+ */
+def notifySlack(String message) {
+    try {
+        withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
+            sh """
+            curl -X POST -H 'Content-type: application/json' \
+            --data '{"text": "${message} - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
+            "\${SLACK_WEBHOOK_URL}"
+            """
+        }
+    } catch (err) {
+        echo "ℹ️ Slack credentials not configured; skipping notification."
     }
 }
