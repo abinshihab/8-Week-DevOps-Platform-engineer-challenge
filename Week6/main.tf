@@ -153,7 +153,7 @@ module "bastion_host" {
   instance_type    = "t3.micro"
   subnet_id        = module.vpc.public_subnet_ids[0]
   vpc_id           = module.vpc.vpc_id
-  allowed_ssh_cidr = data.aws_ssm_parameter.allowed_ssh_cidr
+  allowed_ssh_cidr = local.final_allowed_cidr
   key_name         = "bastion-key"
   bastion_private_ip = "" # This variable is required by the module but not used in the current configuration.
 }
@@ -233,7 +233,7 @@ data "aws_ssm_parameter" "my_trusted_ip" {
 #############################################
 
 locals {
-  final_db_password    = var.db_password    != null ? var.db_password    : data.aws_ssm_parameter.db_password.value
+  final_db_password    = data.aws_ssm_parameter.db_password.value
   final_allowed_cidr    = data.aws_ssm_parameter.my_trusted_ip.value 
   final_my_trusted_ip   = data.aws_ssm_parameter.my_trusted_ip.value
 }
