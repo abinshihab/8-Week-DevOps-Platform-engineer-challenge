@@ -73,7 +73,7 @@ module "security" {
   environment               = var.environment
   vpc_id                    = module.vpc.vpc_id
   alb_security_group_id     = aws_security_group.alb_sg.id
-  my_trusted_ip             = var.my_trusted_ip
+  my_trusted_ip             = data.aws_ssm_parameter.my_trusted_ip.value
   bastion_security_group_id = module.bastion_host.bastion_sg_id
   vpc_cidr_block            = module.vpc.vpc_cidr
   allowed_cidrs = ["10.0.0.0/16"]   # your actual CIDR range
@@ -153,7 +153,7 @@ module "bastion_host" {
   instance_type    = "t3.micro"
   subnet_id        = module.vpc.public_subnet_ids[0]
   vpc_id           = module.vpc.vpc_id
-  allowed_ssh_cidr = var.allowed_ssh_cidr # Replace with your IP
+  allowed_ssh_cidr = data.aws_ssm_parameter.allowed_ssh_cidr
   key_name         = "bastion-key"
   bastion_private_ip = "" # This variable is required by the module but not used in the current configuration.
 }
@@ -212,19 +212,20 @@ module "rds" {
 
 # Database password (SecureString)
 data "aws_ssm_parameter" "db_password" {
-  name            = "/cloudmind/dev/db_password"
+  name            = "/cloudmind/${var.environment}/db_password"
   with_decryption = true
 }
 
 # Allowed SSH CIDR (String)
 data "aws_ssm_parameter" "allowed_ssh_cidr" {
-  name = "/cloudmind/dev/allowed_ssh_cidr"
+  name = "/cloudmind/${var.environment}/allowed_ssh_cidr"
 }
 
 # Trusted IP (String)
 data "aws_ssm_parameter" "my_trusted_ip" {
-  name = "/cloudmind/dev/my_trusted_ip"
+  name = "/cloudmind/${var.environment}/my_trusted_ip"
 }
+
 
 
 #############################################
@@ -233,8 +234,8 @@ data "aws_ssm_parameter" "my_trusted_ip" {
 
 locals {
   final_db_password    = var.db_password    != null ? var.db_password    : data.aws_ssm_parameter.db_password.value
-  final_allowed_cidr    = var.allowed_ssh_cidr != null ? var.allowed_ssh_cidr : data.aws_ssm_parameter.allowed_ssh_cidr.value
-  final_my_trusted_ip   = var.my_trusted_ip != null ? var.my_trusted_ip : data.aws_ssm_parameter.my_trusted_ip.value
+  final_allowed_cidr    = data.aws_ssm_parameter.my_trusted_ip.value 
+  final_my_trusted_ip   = data.aws_ssm_parameter.my_trusted_ip.value
 }
 
 #############################################
