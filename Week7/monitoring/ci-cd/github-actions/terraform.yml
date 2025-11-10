@@ -1,0 +1,152 @@
+name: "Terraform CI/CD – Week7 Monitoring"
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: "Select deployment environment"
+        required: true
+        default: "dev"
+        type: choice
+        options: [dev, stage, prod]
+      apply_infra:
+        description: "Apply Terraform automatically?"
+        required: false
+        default: false
+        type: boolean
+      destroy_infra:
+        description: "Destroy monitoring stack?"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  TF_DIR: Week7/monitoring
+  AWS_REGION: us-east-1
+
+jobs:
+  terraform:
+    name: "Terraform Plan & Apply (Monitoring)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🧩 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🧹 Terraform Format
+        run: terraform fmt -check -recursive || true
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: 🔍 Terraform Init
+        run: |
+          terraform init -reconfigure -input=false \
+            -backend-config=envs/${{ github.event.inputs.target_env || 'dev' }}/backend.conf \
+            -backend-config=key=terraform-monitoring/${{ github.event.inputs.target_env || 'dev' }}/terraform.tfstate
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: 🧪 Terraform Validate
+        if: ${{ github.event.inputs.destroy_infra != 'true' }}
+        run: terraform validate
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: 📋 Terraform Plan
+        if: ${{ github.event.inputs.destroy_infra != 'true' }}
+        run: |
+          terraform plan -input=false \
+            -var-file=envs/${{ github.event.inputs.target_env || 'dev' }}/${{ github.event.inputs.target_env || 'dev' }}.tfvars \
+            -out=tfplan
+          terraform show -no-color tfplan > tfplan.txt
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: 🏗️ Terraform Apply
+        id: apply
+        if: ${{ (github.ref == 'refs/heads/main' && github.event.inputs.destroy_infra != 'true') || github.event.inputs.apply_infra == 'true' }}
+        run: |
+          terraform apply -input=false -auto-approve tfplan || echo "APPLY_FAILED=true" >> $GITHUB_ENV
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: 💣 Terraform Destroy (Rollback)
+        if: ${{ env.APPLY_FAILED == 'true' }}
+        run: |
+          echo "❌ Apply failed — rolling back environment..."
+          terraform destroy -auto-approve \
+            -var-file=envs/${{ github.event.inputs.target_env || 'dev' }}/${{ github.event.inputs.target_env || 'dev' }}.tfvars
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: 📦 Upload Plan Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.event.inputs.target_env || 'dev' }}
+          path: ${{ env.TF_DIR }}/tfplan.txt
+
+      - name: 💬 Slack Notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ job.status }}"
+          ENVIRONMENT="${{ github.event.inputs.target_env || 'dev' }}"
+          MESSAGE="Terraform Monitoring ${STATUS} for *${ENVIRONMENT}*"
+          if [ "${{ env.APPLY_FAILED }}" == "true" ]; then
+            MESSAGE="⚠️ Terraform Apply FAILED for *${ENVIRONMENT}* — rollback executed"
+          fi
+          curl -X POST -H 'Content-type: application/json' \
+          --data "{\"text\": \"${MESSAGE} - Workflow: ${{ github.workflow }} #${{ github.run_number }}\"}" \
+          "$SLACK_WEBHOOK_URL"
+
+  promote-stage:
+    name: "Auto-Promote: Stage"
+    runs-on: ubuntu-latest
+    needs: terraform
+    if: ${{ needs.terraform.result == 'success' && (github.event.inputs.target_env == 'dev' || github.ref == 'refs/heads/main') }}
+    steps:
+      - name: 🚀 Promote to Stage
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "Terraform CI/CD – Week7 Monitoring"
+          ref: main
+          inputs: |
+            target_env: "stage"
+            apply_infra: "true"
+
+  promote-prod:
+    name: "Manual Promotion: Prod"
+    runs-on: ubuntu-latest
+    needs: promote-stage
+    if: ${{ needs.promote-stage.result == 'success' }}
+    steps:
+      - name: 🚦 Manual Approval for Prod
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: your-github-username
+          minimum-approvals: 1
+          issue-title: "Approve Promotion to PROD (Week7 Monitoring)"
+          issue-body: "Approve to trigger the PROD deployment for the CloudWatch Monitoring stack."
+
+      - name: 🚀 Promote to Prod
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "Terraform CI/CD – Week7 Monitoring"
+          ref: main
+          inputs: |
+            target_env: "prod"
+            apply_infra: "true"
