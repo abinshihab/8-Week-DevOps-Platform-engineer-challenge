@@ -192,7 +192,7 @@ pipeline {
         }
         always {
             echo "📦 Archiving plan and cleaning workspace..."
-            archiveArtifacts artifacts: '**/tfplan.txt', onlyIfSuccessful: false
+            archiveArtifacts artifacts: "${TF_DIR}/tfplan.txt", fingerprint: true, allowEmptyArchive: true
             cleanWs(deleteDirs: true)
         }
     }
