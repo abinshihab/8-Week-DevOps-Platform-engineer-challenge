@@ -12,3 +12,7 @@ output "alb_unhealthy_alarm_name" {
   description = "ALB unhealthy hosts alarm name"
   value       = module.cloudwatch_alerts.alb_unhealthy_alarm_name
 }
+output "dashboard_name" {
+  description = "CloudWatch dashboard name"
+  value       = module.cloudwatch_alerts.dashboard_name
+}

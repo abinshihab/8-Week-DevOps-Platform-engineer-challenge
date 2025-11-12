@@ -39,3 +39,9 @@ variable "alb_request_threshold" {
   type        = number
   default     = 500
 }
+variable "dashboard_name" {
+  description = "Name of the CloudWatch dashboard"
+  type        = string
+  default     = null
+}
+
