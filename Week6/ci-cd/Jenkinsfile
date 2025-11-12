@@ -20,6 +20,7 @@ pipeline {
     }
 
     options {
+        timeout(time: 60, unit: 'MINUTES')
         timestamps()
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -51,6 +52,13 @@ pipeline {
                         }
                     }
                 }
+                stage('Lint (tflint)') {
+                    steps {
+                        dir("${TF_DIR}") {
+                            sh "tflint --chdir=${TF_DIR} || true"
+                        }
+                    }
+                }
             }
         }
 
@@ -59,9 +67,9 @@ pipeline {
                 dir("${TF_DIR}") {
                     echo "🚀 Initializing Terraform backend for ${ENV}"
                     sh """
+                    rm -rf .terraform .terraform.lock.hcl
                     terraform init -reconfigure -input=false \
                       -backend-config=envs/${ENV}/backend.conf \
-                      -backend-config=key=terraform/${ENV}/terraform.tfstate \
                       -var-file=${TF_VAR_FILE}
                     """
                 }
@@ -72,7 +80,10 @@ pipeline {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    sh "terraform validate"
+                    sh '''
+                        terraform init -reconfigure -input=false
+                        terraform validate
+                    '''
                 }
             }
         }
@@ -120,9 +131,9 @@ pipeline {
                         if (applyStatus != 0) {
                             echo "❌ Terraform apply failed for ${ENV}"
                             if (params.ROLLBACK_ON_FAILURE) {
-                                echo "🔁 Rolling back ${ENV} infrastructure..."
-                                sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
-                                notifySlack("⚠️ Rollback triggered for *${ENV}* after failed apply")
+                                echo "🔁 Rollback initiated (refresh-only)..."
+                                sh "terraform apply -refresh-only -auto-approve -var-file=${TF_VAR_FILE} || true"
+                                notifySlack("⚠️ Refresh-only rollback executed for *${ENV}* after failed apply")
                             }
                             error("Terraform apply failed with exit code ${applyStatus}")
                         }
@@ -137,9 +148,7 @@ pipeline {
                 dir("${TF_DIR}") {
                     input message: "💣 Confirm destroy of *${ENV}* environment?", ok: "Yes, destroy it!"
                     echo "🔥 Destroying Terraform resources for ${ENV}..."
-                    sh """
-                    terraform destroy -auto-approve -var-file=${TF_VAR_FILE}
-                    """
+                    sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
                 }
             }
         }
@@ -205,13 +214,46 @@ pipeline {
 /**
  * Slack Notification Helper
  */
-def notifySlack(String message) {
+def notifySlack(String status, String message) {
+    def color
+    def emoji
+
+    switch (status) {
+        case 'SUCCESS':
+            color = '#36a64f'      // Green
+            emoji = '✅'
+            break
+        case 'FAILURE':
+            color = '#ff0000'      // Red
+            emoji = '❌'
+            break
+        case 'WARNING':
+            color = '#ffae42'      // Orange
+            emoji = '⚠️'
+            break
+        default:
+            color = '#439FE0'      // Blue
+            emoji = 'ℹ️'
+    }
+
     try {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
             sh """
             curl -X POST -H 'Content-type: application/json' \
-            --data '{"text": "${message} - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
-            "\${SLACK_WEBHOOK_URL}"
+            --data '{
+              "attachments": [{
+                "color": "${color}",
+                "title": "${emoji} ${message}",
+                "fields": [
+                  {"title": "Job", "value": "${env.JOB_NAME}", "short": true},
+                  {"title": "Build #", "value": "${env.BUILD_NUMBER}", "short": true},
+                  {"title": "Environment", "value": "${params.TARGET_ENV}", "short": true},
+                  {"title": "Status", "value": "${status}", "short": true}
+                ],
+                "footer": "CloudMind DevOps CI/CD",
+                "ts": $(date +%s)
+              }]
+            }' "\${SLACK_WEBHOOK_URL}"
             """
         }
     } catch (err) {

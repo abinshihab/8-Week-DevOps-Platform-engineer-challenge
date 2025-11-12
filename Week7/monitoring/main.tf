@@ -1,6 +1,23 @@
 ############################################
 # Provider
 ############################################
+terraform {
+  required_version = ">= 1.6.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "cc8weeks-terraform-state"
+    key    = "week7/monitoring/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
 provider "aws" {
   region = var.region
 }
@@ -19,4 +36,10 @@ module "cloudwatch_alerts" {
   alb_target_group_arn_suffix = var.alb_target_group_arn_suffix
   alerts_email                = var.alerts_email
   alb_request_threshold       = var.alb_request_threshold
+
 }
+
+############################################
+# Optional: Outputs
+############################################
+
