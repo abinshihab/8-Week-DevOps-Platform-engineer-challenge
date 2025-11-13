@@ -214,33 +214,35 @@ pipeline {
 /**
  * Slack Notification Helper
  */
-def notifySlack(String status, String message) {
+
+def notifySlack(String message) {
     def color
     def emoji
+    def statusText
 
-    switch (status) {
-        case 'SUCCESS':
-            color = '#36a64f'      // Green
-            emoji = '✅'
-            break
-        case 'FAILURE':
-            color = '#ff0000'      // Red
-            emoji = '❌'
-            break
-        case 'WARNING':
-            color = '#ffae42'      // Orange
-            emoji = '⚠️'
-            break
-        default:
-            color = '#439FE0'      // Blue
-            emoji = 'ℹ️'
+    if (message.contains("✅")) {
+        color = '#36a64f'
+        emoji = '✅'
+        statusText = 'SUCCESS'
+    } else if (message.contains("❌")) {
+        color = '#ff0000'
+        emoji = '❌'
+        statusText = 'FAILURE'
+    } else if (message.contains("⚠️")) {
+        color = '#ffae42'
+        emoji = '⚠️'
+        statusText = 'WARNING'
+    } else {
+        color = '#439FE0'
+        emoji = 'ℹ️'
+        statusText = 'INFO'
     }
 
     try {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
-            sh """
-            curl -X POST -H 'Content-type: application/json' \
-            --data '{
+            def timestamp = System.currentTimeMillis() / 1000
+            def payload = """
+            {
               "attachments": [{
                 "color": "${color}",
                 "title": "${emoji} ${message}",
@@ -248,12 +250,20 @@ def notifySlack(String status, String message) {
                   {"title": "Job", "value": "${env.JOB_NAME}", "short": true},
                   {"title": "Build #", "value": "${env.BUILD_NUMBER}", "short": true},
                   {"title": "Environment", "value": "${params.TARGET_ENV}", "short": true},
-                  {"title": "Status", "value": "${status}", "short": true}
+                  {"title": "Status", "value": "${statusText}", "short": true}
                 ],
                 "footer": "CloudMind DevOps CI/CD",
-                "ts": $(date +%s)
+                "ts": "${timestamp}"
               }]
-            }' "\${SLACK_WEBHOOK_URL}"
+            }
+            """
+
+            // Escape single quotes before passing JSON to shell
+            def safePayload = payload.replace("'", "'\\''")
+
+            sh """
+              curl -X POST -H 'Content-type: application/json' \
+              --data '${safePayload}' "\${SLACK_WEBHOOK_URL}"
             """
         }
     } catch (err) {
