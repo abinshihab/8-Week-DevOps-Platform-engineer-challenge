@@ -15,7 +15,7 @@ pipeline {
     environment {
         ENV         = "${params.TARGET_ENV}"
         TF_DIR      = "${WORKSPACE}/Week7/monitoring"
-        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
+        TF_VAR_FILE = "${WORKSPACE}/Week7/envs/${ENV}/${ENV}.tfvars"
         AWS_REGION  = "us-east-1"
     }
 
