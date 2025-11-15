@@ -2,25 +2,20 @@ pipeline {
     agent any
 
     parameters {
-        choice(
-            name: 'TARGET_ENV',
-            choices: ['dev', 'stage', 'prod'],
-            description: 'Select the deployment environment'
-        )
+        choice(name: 'TARGET_ENV', choices: ['dev', 'stage', 'prod'], description: 'Select the deployment environment')
         booleanParam(name: 'APPLY_INFRA',   defaultValue: false, description: '✅ Apply Terraform changes automatically')
-        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy infrastructure for selected environment')
-        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback infrastructure if apply fails')
+        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy monitoring stack for selected environment')
+        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback monitoring stack if apply fails')
     }
 
     environment {
         ENV         = "${params.TARGET_ENV}"
-        TF_DIR      = "${WORKSPACE}/Week6"
-        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
+        TF_DIR      = "${WORKSPACE}/Week7/monitoring"
+        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"  // ✅ relative path fixed
         AWS_REGION  = "us-east-1"
     }
 
     options {
-        timeout(time: 60, unit: 'MINUTES')
         timestamps()
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -35,29 +30,13 @@ pipeline {
             }
         }
 
-        stage('Parallel Checks') {
-            when { expression { !params.DESTROY_INFRA } }
-            parallel {
-                stage('Terraform Fmt') {
-                    steps {
-                        dir("${TF_DIR}") {
-                            sh "terraform fmt -check -recursive || true"
-                        }
-                    }
-                }
-                stage('Security Scan (tfsec)') {
-                    steps {
-                        dir("${TF_DIR}") {
-                            sh "tfsec . || true"
-                        }
-                    }
-                }
-                stage('Lint (tflint)') {
-                    steps {
-                        dir("${TF_DIR}") {
-                            sh "tflint --chdir=${TF_DIR} || true"
-                        }
-                    }
+        stage('Verify tfvars Files') {
+            steps {
+                dir("${TF_DIR}") {
+                    sh '''
+echo "🔍 Checking for tfvars files inside: $(pwd)"
+find . -name "*.tfvars" || echo "❌ No tfvars files found!"
+'''
                 }
             }
         }
@@ -67,11 +46,13 @@ pipeline {
                 dir("${TF_DIR}") {
                     echo "🚀 Initializing Terraform backend for ${ENV}"
                     sh """
-                    rm -rf .terraform .terraform.lock.hcl
-                    terraform init -reconfigure -input=false \
-                      -backend-config=envs/${ENV}/backend.conf \
-                      -var-file=${TF_VAR_FILE}
-                    """
+echo "PWD: \$(pwd)"
+echo "Using tfvars file: ${TF_VAR_FILE}"
+terraform init -reconfigure -input=false \
+  -backend-config=envs/${ENV}/backend.conf \
+  -backend-config=key=terraform-monitoring/${ENV}/terraform.tfstate \
+  -var-file="${TF_VAR_FILE}"
+"""
                 }
             }
         }
@@ -80,10 +61,7 @@ pipeline {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    sh '''
-                        terraform init -reconfigure -input=false
-                        terraform validate
-                    '''
+                    sh "terraform validate"
                 }
             }
         }
@@ -92,19 +70,18 @@ pipeline {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "📋 Creating Terraform plan for ${ENV}..."
+                    echo "📋 Creating Terraform plan for monitoring stack in ${ENV}..."
                     sh """
-                    terraform plan -input=false \
-                      -var-file=${TF_VAR_FILE} \
-                      -out=tfplan
-                    terraform show -no-color tfplan > tfplan.txt
-                    """
+echo "TF_VAR_FILE -> ${TF_VAR_FILE}"
+terraform plan -input=false -var-file="${TF_VAR_FILE}" -out=tfplan
+terraform show -no-color tfplan > tfplan.txt
+"""
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
                 }
             }
         }
 
-        stage('Manual Approval (for PROD)') {
+        stage('Manual Approval (for PROD only)') {
             when {
                 allOf {
                     expression { params.TARGET_ENV == 'prod' }
@@ -112,7 +89,7 @@ pipeline {
                 }
             }
             steps {
-                input message: "⚠️ Approve deployment to *PROD* environment?", ok: "Deploy"
+                input message: "⚠️ Approve deployment to *PROD Monitoring* environment?", ok: "Deploy"
             }
         }
 
@@ -125,15 +102,15 @@ pipeline {
             }
             steps {
                 dir("${TF_DIR}") {
-                    echo "⚡ Applying Terraform for ${ENV}..."
+                    echo "⚡ Applying Terraform monitoring stack for ${ENV}..."
                     script {
                         def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
                         if (applyStatus != 0) {
                             echo "❌ Terraform apply failed for ${ENV}"
                             if (params.ROLLBACK_ON_FAILURE) {
-                                echo "🔁 Rollback initiated (refresh-only)..."
-                                sh "terraform apply -refresh-only -auto-approve -var-file=${TF_VAR_FILE} || true"
-                                notifySlack("⚠️ Refresh-only rollback executed for *${ENV}* after failed apply")
+                                echo "🔁 Rolling back monitoring resources for ${ENV}..."
+                                sh "terraform destroy -auto-approve -var-file=\"${TF_VAR_FILE}\""
+                                notifySlack("⚠️ Rollback triggered for *${ENV}* monitoring stack after failed apply")
                             }
                             error("Terraform apply failed with exit code ${applyStatus}")
                         }
@@ -146,125 +123,40 @@ pipeline {
             when { expression { params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    input message: "💣 Confirm destroy of *${ENV}* environment?", ok: "Yes, destroy it!"
-                    echo "🔥 Destroying Terraform resources for ${ENV}..."
-                    sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
+                    input message: "💣 Confirm destroy of *${ENV}* monitoring environment?", ok: "Yes, destroy it!"
+                    echo "🔥 Destroying Terraform monitoring resources for ${ENV}..."
+                    sh "terraform destroy -auto-approve -var-file=\"${TF_VAR_FILE}\""
                 }
-            }
-        }
-
-        // Auto-Promotion: DEV → STAGE
-        stage('Promote to Stage') {
-            when {
-                allOf {
-                    expression { params.TARGET_ENV == 'dev' }
-                    expression { currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
-            steps {
-                echo "🚀 Dev deployment successful — promoting to Stage..."
-                build job: env.JOB_NAME,
-                      parameters: [
-                          string(name: 'TARGET_ENV', value: 'stage'),
-                          booleanParam(name: 'APPLY_INFRA', value: true)
-                      ],
-                      wait: false
-            }
-        }
-
-        // Manual Promotion: STAGE → PROD
-        stage('Promote to Prod') {
-            when {
-                allOf {
-                    expression { params.TARGET_ENV == 'stage' }
-                    expression { currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
-            steps {
-                input message: "🚦 Approve promotion to *PROD*?", ok: "Proceed"
-                build job: env.JOB_NAME,
-                      parameters: [
-                          string(name: 'TARGET_ENV', value: 'prod'),
-                          booleanParam(name: 'APPLY_INFRA', value: true)
-                      ],
-                      wait: false
             }
         }
     }
 
     post {
         success {
-            echo "✅ Pipeline completed successfully for ${ENV}"
-            script { notifySlack("✅ Terraform Apply succeeded for *${ENV}*") }
+            echo "✅ Monitoring pipeline completed successfully for ${ENV}"
+            script { notifySlack("✅ Terraform Monitoring Apply succeeded for *${ENV}*") }
         }
-
         failure {
-            echo "❌ Pipeline failed for ${ENV}"
-            script { notifySlack("❌ Terraform Pipeline failed for *${ENV}*") }
+            echo "❌ Monitoring pipeline failed for ${ENV}"
+            script { notifySlack("❌ Terraform Monitoring Pipeline failed for *${ENV}*") }
         }
-
         always {
-            echo "📦 Archiving artifacts and cleaning workspace..."
-            archiveArtifacts artifacts: '**/tfplan.txt', onlyIfSuccessful: false
+            echo "📦 Archiving plan and cleaning workspace..."
+            archiveArtifacts artifacts: "${TF_DIR}/tfplan.txt", fingerprint: true, allowEmptyArchive: true
             cleanWs(deleteDirs: true)
         }
     }
 }
 
-/**
- * Slack Notification Helper
- */
-
+/** Slack Notification Helper */
 def notifySlack(String message) {
-    def color
-    def emoji
-    def statusText
-
-    if (message.contains("✅")) {
-        color = '#36a64f'
-        emoji = '✅'
-        statusText = 'SUCCESS'
-    } else if (message.contains("❌")) {
-        color = '#ff0000'
-        emoji = '❌'
-        statusText = 'FAILURE'
-    } else if (message.contains("⚠️")) {
-        color = '#ffae42'
-        emoji = '⚠️'
-        statusText = 'WARNING'
-    } else {
-        color = '#439FE0'
-        emoji = 'ℹ️'
-        statusText = 'INFO'
-    }
-
     try {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
-            def timestamp = System.currentTimeMillis() / 1000
-            def payload = """
-            {
-              "attachments": [{
-                "color": "${color}",
-                "title": "${emoji} ${message}",
-                "fields": [
-                  {"title": "Job", "value": "${env.JOB_NAME}", "short": true},
-                  {"title": "Build #", "value": "${env.BUILD_NUMBER}", "short": true},
-                  {"title": "Environment", "value": "${params.TARGET_ENV}", "short": true},
-                  {"title": "Status", "value": "${statusText}", "short": true}
-                ],
-                "footer": "CloudMind DevOps CI/CD",
-                "ts": "${timestamp}"
-              }]
-            }
-            """
-
-            // Escape single quotes before passing JSON to shell
-            def safePayload = payload.replace("'", "'\\''")
-
             sh """
-              curl -X POST -H 'Content-type: application/json' \
-              --data '${safePayload}' "\${SLACK_WEBHOOK_URL}"
-            """
+curl -X POST -H 'Content-type: application/json' \
+--data '{"text": "${message} - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
+"\${SLACK_WEBHOOK_URL}"
+"""
         }
     } catch (err) {
         echo "ℹ️ Slack webhook not configured; skipping notification."
