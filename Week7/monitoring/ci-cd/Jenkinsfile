@@ -11,7 +11,8 @@ pipeline {
     environment {
         ENV         = "${params.TARGET_ENV}"
         TF_DIR      = "${WORKSPACE}/Week7/monitoring"
-        TF_VAR_FILE = "${WORKSPACE}/Week7/monitoring/envs/${ENV}/${ENV}.tfvars"
+        // ✅ RELATIVE PATH FIX — now points correctly inside TF_DIR
+        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
         AWS_REGION  = "us-east-1"
     }
 
@@ -80,7 +81,8 @@ terraform init -reconfigure -input=false \
                 dir("${TF_DIR}") {
                     echo "📋 Creating Terraform plan for monitoring stack in ${ENV}..."
                     sh """
-echo "TF_VAR_FILE -> ${TF_VAR_FILE}"
+echo "DEBUG: pwd=\$(pwd)"
+echo "DEBUG: TF_VAR_FILE=${TF_VAR_FILE}"
 terraform plan -input=false -var-file="${TF_VAR_FILE}" -out=tfplan
 terraform show -no-color tfplan > tfplan.txt
 """
@@ -89,90 +91,7 @@ terraform show -no-color tfplan > tfplan.txt
             }
         }
 
-        stage('Manual Approval (for PROD)') {
-            when {
-                allOf {
-                    expression { params.TARGET_ENV == 'prod' }
-                    expression { !params.DESTROY_INFRA }
-                }
-            }
-            steps {
-                input message: "⚠️ Approve deployment to *PROD Monitoring* environment?", ok: "Deploy"
-            }
-        }
-
-        stage('Terraform Apply') {
-            when {
-                allOf {
-                    expression { params.APPLY_INFRA }
-                    expression { !params.DESTROY_INFRA }
-                }
-            }
-            steps {
-                dir("${TF_DIR}") {
-                    echo "⚡ Applying Terraform monitoring stack for ${ENV}..."
-                    script {
-                        def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
-                        if (applyStatus != 0) {
-                            echo "❌ Terraform apply failed for ${ENV}"
-                            if (params.ROLLBACK_ON_FAILURE) {
-                                echo "🔁 Rolling back monitoring resources for ${ENV}..."
-                                sh "terraform destroy -auto-approve -var-file=\"${TF_VAR_FILE}\""
-                                notifySlack("⚠️ Rollback triggered for *${ENV}* monitoring stack after failed apply")
-                            }
-                            error("Terraform apply failed with exit code ${applyStatus}")
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Terraform Destroy') {
-            when { expression { params.DESTROY_INFRA } }
-            steps {
-                dir("${TF_DIR}") {
-                    input message: "💣 Confirm destroy of *${ENV}* monitoring environment?", ok: "Yes, destroy it!"
-                    echo "🔥 Destroying Terraform monitoring resources for ${ENV}..."
-                    sh "terraform destroy -auto-approve -var-file=\"${TF_VAR_FILE}\""
-                }
-            }
-        }
-
-        stage('Promote to Stage') {
-            when {
-                allOf {
-                    expression { params.TARGET_ENV == 'dev' }
-                    expression { currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
-            steps {
-                echo "🚀 Dev monitoring deployed — promoting to Stage..."
-                build job: env.JOB_NAME,
-                      parameters: [
-                          string(name: 'TARGET_ENV', value: 'stage'),
-                          booleanParam(name: 'APPLY_INFRA', value: true)
-                      ],
-                      wait: false
-            }
-        }
-
-        stage('Promote to Prod') {
-            when {
-                allOf {
-                    expression { params.TARGET_ENV == 'stage' }
-                    expression { currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
-            steps {
-                input message: "🚦 Approve promotion of monitoring stack to *PROD*?", ok: "Proceed"
-                build job: env.JOB_NAME,
-                      parameters: [
-                          string(name: 'TARGET_ENV', value: 'prod'),
-                          booleanParam(name: 'APPLY_INFRA', value: true)
-                      ],
-                      wait: false
-            }
-        }
+        // (keep the rest of your stages — Apply, Destroy, Promotions, etc.)
     }
 
     post {
