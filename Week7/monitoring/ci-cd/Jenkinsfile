@@ -2,11 +2,7 @@ pipeline {
     agent any
 
     parameters {
-        choice(
-            name: 'TARGET_ENV',
-            choices: ['dev', 'stage', 'prod'],
-            description: 'Select the deployment environment'
-        )
+        choice(name: 'TARGET_ENV', choices: ['dev', 'stage', 'prod'], description: 'Select the deployment environment')
         booleanParam(name: 'APPLY_INFRA',   defaultValue: false, description: '✅ Apply Terraform changes automatically')
         booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy monitoring stack for selected environment')
         booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback monitoring stack if apply fails')
@@ -15,7 +11,8 @@ pipeline {
     environment {
         ENV         = "${params.TARGET_ENV}"
         TF_DIR      = "${WORKSPACE}/Week7/monitoring"
-        TF_VAR_FILE = "${WORKSPACE}/Week7/envs/${ENV}/${ENV}.tfvars"
+        // ✅ Correct path – matches your real repo layout
+        TF_VAR_FILE = "${WORKSPACE}/Week7/monitoring/envs/${ENV}/${ENV}.tfvars"
         AWS_REGION  = "us-east-1"
     }
 
@@ -59,11 +56,12 @@ pipeline {
                 dir("${TF_DIR}") {
                     echo "🚀 Initializing Terraform backend for ${ENV}"
                     sh """
-                    terraform init -reconfigure -input=false \
-                      -backend-config=envs/${ENV}/backend.conf \
-                      -backend-config=key=terraform-monitoring/${ENV}/terraform.tfstate \
-                      -var-file=${TF_VAR_FILE}
-                    """
+echo "Working dir: $(pwd)"
+terraform init -reconfigure -input=false \
+  -backend-config=envs/${ENV}/backend.conf \
+  -backend-config=key=terraform-monitoring/${ENV}/terraform.tfstate \
+  -var-file="${TF_VAR_FILE}"
+"""
                 }
             }
         }
@@ -83,11 +81,10 @@ pipeline {
                 dir("${TF_DIR}") {
                     echo "📋 Creating Terraform plan for monitoring stack in ${ENV}..."
                     sh """
-                    terraform plan -input=false \
-                      -var-file=${TF_VAR_FILE} \
-                      -out=tfplan
-                    terraform show -no-color tfplan > tfplan.txt
-                    """
+echo "TF_VAR_FILE -> ${TF_VAR_FILE}"
+terraform plan -input=false -var-file="${TF_VAR_FILE}" -out=tfplan
+terraform show -no-color tfplan > tfplan.txt
+"""
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
                 }
             }
@@ -121,7 +118,7 @@ pipeline {
                             echo "❌ Terraform apply failed for ${ENV}"
                             if (params.ROLLBACK_ON_FAILURE) {
                                 echo "🔁 Rolling back monitoring resources for ${ENV}..."
-                                sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
+                                sh "terraform destroy -auto-approve -var-file=\"${TF_VAR_FILE}\""
                                 notifySlack("⚠️ Rollback triggered for *${ENV}* monitoring stack after failed apply")
                             }
                             error("Terraform apply failed with exit code ${applyStatus}")
@@ -137,12 +134,11 @@ pipeline {
                 dir("${TF_DIR}") {
                     input message: "💣 Confirm destroy of *${ENV}* monitoring environment?", ok: "Yes, destroy it!"
                     echo "🔥 Destroying Terraform monitoring resources for ${ENV}..."
-                    sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
+                    sh "terraform destroy -auto-approve -var-file=\"${TF_VAR_FILE}\""
                 }
             }
         }
 
-        // Auto-Promotion: DEV → STAGE (optional for monitoring)
         stage('Promote to Stage') {
             when {
                 allOf {
@@ -161,7 +157,6 @@ pipeline {
             }
         }
 
-        // Manual Promotion: STAGE → PROD
         stage('Promote to Prod') {
             when {
                 allOf {
@@ -198,17 +193,15 @@ pipeline {
     }
 }
 
-/**
- * Slack Notification Helper
- */
+/** Slack Notification Helper */
 def notifySlack(String message) {
     try {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
             sh """
-            curl -X POST -H 'Content-type: application/json' \
-            --data '{"text": "${message} - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
-            "\${SLACK_WEBHOOK_URL}"
-            """
+curl -X POST -H 'Content-type: application/json' \
+--data '{"text": "${message} - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
+"${SLACK_WEBHOOK_URL}"
+"""
         }
     } catch (err) {
         echo "ℹ️ Slack webhook not configured; skipping notification."
