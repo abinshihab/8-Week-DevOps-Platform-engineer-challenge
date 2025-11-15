@@ -11,8 +11,7 @@ pipeline {
     environment {
         ENV         = "${params.TARGET_ENV}"
         TF_DIR      = "${WORKSPACE}/Week7/monitoring"
-        // ✅ relative to TF_DIR — do NOT include ${WORKSPACE} again
-        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
+        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"  // ✅ relative path fixed
         AWS_REGION  = "us-east-1"
     }
 
@@ -31,15 +30,14 @@ pipeline {
             }
         }
 
-        stage('Verify Workspace') {
+        stage('Verify tfvars Files') {
             steps {
-                echo "🔍 Verifying workspace content..."
-                sh """
-echo '--- Current Directory ---'
-pwd
-echo '--- Repository Structure ---'
-ls -R
-"""
+                dir("${TF_DIR}") {
+                    sh '''
+echo "🔍 Checking for tfvars files inside: $(pwd)"
+find . -name "*.tfvars" || echo "❌ No tfvars files found!"
+'''
+                }
             }
         }
 
@@ -48,8 +46,8 @@ ls -R
                 dir("${TF_DIR}") {
                     echo "🚀 Initializing Terraform backend for ${ENV}"
                     sh """
-echo 'PWD: \$(pwd)'
-echo 'Using tfvars: ${TF_VAR_FILE}'
+echo "PWD: \$(pwd)"
+echo "Using tfvars file: ${TF_VAR_FILE}"
 terraform init -reconfigure -input=false \
   -backend-config=envs/${ENV}/backend.conf \
   -backend-config=key=terraform-monitoring/${ENV}/terraform.tfstate \
@@ -74,8 +72,7 @@ terraform init -reconfigure -input=false \
                 dir("${TF_DIR}") {
                     echo "📋 Creating Terraform plan for monitoring stack in ${ENV}..."
                     sh """
-echo 'Working dir: \$(pwd)'
-echo 'Using tfvars: ${TF_VAR_FILE}'
+echo "TF_VAR_FILE -> ${TF_VAR_FILE}"
 terraform plan -input=false -var-file="${TF_VAR_FILE}" -out=tfplan
 terraform show -no-color tfplan > tfplan.txt
 """
@@ -84,7 +81,7 @@ terraform show -no-color tfplan > tfplan.txt
             }
         }
 
-        stage('Manual Approval (PROD only)') {
+        stage('Manual Approval (for PROD only)') {
             when {
                 allOf {
                     expression { params.TARGET_ENV == 'prod' }
