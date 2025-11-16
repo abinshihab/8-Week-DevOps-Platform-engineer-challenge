@@ -11,7 +11,7 @@ pipeline {
     environment {
         ENV         = "${params.TARGET_ENV}"
         TF_DIR      = "${WORKSPACE}/Week7/monitoring"
-        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"  // ✅ relative path fixed
+        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
         AWS_REGION  = "us-east-1"
     }
 
@@ -32,56 +32,55 @@ pipeline {
 
         stage('Verify tfvars Files') {
             steps {
-                dir("${TF_DIR}") {
-                    sh '''
-echo "🔍 Checking for tfvars files inside: $(pwd)"
+                sh """
+echo "🔍 Checking for tfvars files in workspace:"
 find . -name "*.tfvars" || echo "❌ No tfvars files found!"
-'''
-                }
+"""
             }
         }
 
         stage('Terraform Init') {
             steps {
-                dir("${TF_DIR}") {
-                    echo "🚀 Initializing Terraform backend for ${ENV}"
-                    sh """
-echo "PWD: \$(pwd)"
-echo "Using tfvars file: ${TF_VAR_FILE}"
-terraform init -reconfigure -input=false \
+                echo "🚀 Initializing Terraform backend for ${ENV}"
+                sh """
+echo "Working Directory: $(pwd)"
+echo "Using tfvars: ${TF_DIR}/${TF_VAR_FILE}"
+
+terraform -chdir="${TF_DIR}" init -reconfigure -input=false \
   -backend-config=envs/${ENV}/backend.conf \
   -backend-config=key=terraform-monitoring/${ENV}/terraform.tfstate \
   -var-file="${TF_VAR_FILE}"
 """
-                }
             }
         }
 
         stage('Terraform Validate') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
-                dir("${TF_DIR}") {
-                    sh "terraform validate"
-                }
+                echo "✅ Validating Terraform configuration..."
+                sh "terraform -chdir='${TF_DIR}' validate"
             }
         }
 
         stage('Terraform Plan') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
-                dir("${TF_DIR}") {
-                    echo "📋 Creating Terraform plan for monitoring stack in ${ENV}..."
-                    sh """
-echo "TF_VAR_FILE -> ${TF_VAR_FILE}"
-terraform plan -input=false -var-file="${TF_VAR_FILE}" -out=tfplan
-terraform show -no-color tfplan > tfplan.txt
+                echo "📋 Creating Terraform plan for monitoring stack in ${ENV}..."
+                sh """
+echo "PWD before plan: $(pwd)"
+echo "Using tfvars: ${TF_DIR}/${TF_VAR_FILE}"
+
+terraform -chdir="${TF_DIR}" plan -input=false \
+  -var-file="${TF_VAR_FILE}" \
+  -out=tfplan
+
+terraform -chdir="${TF_DIR}" show -no-color tfplan > ${TF_DIR}/tfplan.txt
 """
-                    archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
-                }
+                archiveArtifacts artifacts: 'Week7/monitoring/tfplan.txt', fingerprint: true
             }
         }
 
-        stage('Manual Approval (for PROD only)') {
+        stage('Manual Approval (PROD only)') {
             when {
                 allOf {
                     expression { params.TARGET_ENV == 'prod' }
@@ -101,19 +100,17 @@ terraform show -no-color tfplan > tfplan.txt
                 }
             }
             steps {
-                dir("${TF_DIR}") {
-                    echo "⚡ Applying Terraform monitoring stack for ${ENV}..."
-                    script {
-                        def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
-                        if (applyStatus != 0) {
-                            echo "❌ Terraform apply failed for ${ENV}"
-                            if (params.ROLLBACK_ON_FAILURE) {
-                                echo "🔁 Rolling back monitoring resources for ${ENV}..."
-                                sh "terraform destroy -auto-approve -var-file=\"${TF_VAR_FILE}\""
-                                notifySlack("⚠️ Rollback triggered for *${ENV}* monitoring stack after failed apply")
-                            }
-                            error("Terraform apply failed with exit code ${applyStatus}")
+                echo "⚡ Applying Terraform monitoring stack for ${ENV}..."
+                script {
+                    def applyStatus = sh(script: "terraform -chdir='${TF_DIR}' apply -input=false tfplan", returnStatus: true)
+                    if (applyStatus != 0) {
+                        echo "❌ Terraform apply failed for ${ENV}"
+                        if (params.ROLLBACK_ON_FAILURE) {
+                            echo "🔁 Rolling back monitoring resources for ${ENV}..."
+                            sh "terraform -chdir='${TF_DIR}' destroy -auto-approve -var-file='${TF_VAR_FILE}'"
+                            notifySlack("⚠️ Rollback triggered for *${ENV}* monitoring stack after failed apply")
                         }
+                        error("Terraform apply failed with exit code ${applyStatus}")
                     }
                 }
             }
@@ -122,11 +119,9 @@ terraform show -no-color tfplan > tfplan.txt
         stage('Terraform Destroy') {
             when { expression { params.DESTROY_INFRA } }
             steps {
-                dir("${TF_DIR}") {
-                    input message: "💣 Confirm destroy of *${ENV}* monitoring environment?", ok: "Yes, destroy it!"
-                    echo "🔥 Destroying Terraform monitoring resources for ${ENV}..."
-                    sh "terraform destroy -auto-approve -var-file=\"${TF_VAR_FILE}\""
-                }
+                input message: "💣 Confirm destroy of *${ENV}* monitoring environment?", ok: "Yes, destroy it!"
+                echo "🔥 Destroying Terraform monitoring resources for ${ENV}..."
+                sh "terraform -chdir='${TF_DIR}' destroy -auto-approve -var-file='${TF_VAR_FILE}'"
             }
         }
     }
@@ -142,7 +137,7 @@ terraform show -no-color tfplan > tfplan.txt
         }
         always {
             echo "📦 Archiving plan and cleaning workspace..."
-            archiveArtifacts artifacts: "${TF_DIR}/tfplan.txt", fingerprint: true, allowEmptyArchive: true
+            archiveArtifacts artifacts: "Week7/monitoring/tfplan.txt", fingerprint: true, allowEmptyArchive: true
             cleanWs(deleteDirs: true)
         }
     }
