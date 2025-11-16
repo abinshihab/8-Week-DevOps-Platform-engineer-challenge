@@ -25,4 +25,6 @@ secret.auto.tfvars
 !Week6/envs/dev/dev.tfvars
 !Week6/envs/prod/prod.tfvars
 !Week6/envs/stage/stage.tfvars
-
+!Week7/envs/dev/dev.tfvars
+!Week7/envs/prod/prod.tfvars
+!Week7/envs/stage/stage.tfvars
