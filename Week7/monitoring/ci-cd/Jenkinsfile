@@ -30,12 +30,21 @@ pipeline {
             }
         }
 
-        stage('Verify tfvars Files') {
+        stage('Debug Workspace') {
             steps {
-                sh """
-echo "🔍 Checking for tfvars files in workspace:"
-find . -name "*.tfvars" || echo "❌ No tfvars files found!"
-"""
+                echo "🔍 Checking workspace contents before Terraform..."
+                sh '''
+echo "----- DEBUG INFO -----"
+echo "Current directory (pwd):"
+pwd
+echo ""
+echo "Listing all .tfvars files found in workspace:"
+find . -type f -name "*.tfvars" || echo "❌ No tfvars files found"
+echo ""
+echo "Listing structure under Week7/monitoring:"
+ls -R Week7/monitoring || echo "Week7/monitoring folder not found!"
+echo "-----------------------"
+'''
             }
         }
 
@@ -43,9 +52,7 @@ find . -name "*.tfvars" || echo "❌ No tfvars files found!"
             steps {
                 echo "🚀 Initializing Terraform backend for ${ENV}"
                 sh """
-echo "Working Directory: $(pwd)"
 echo "Using tfvars: ${TF_DIR}/${TF_VAR_FILE}"
-
 terraform -chdir="${TF_DIR}" init -reconfigure -input=false \
   -backend-config=envs/${ENV}/backend.conf \
   -backend-config=key=terraform-monitoring/${ENV}/terraform.tfstate \
