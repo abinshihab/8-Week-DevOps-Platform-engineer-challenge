@@ -7,7 +7,7 @@ pipeline {
             choices: ['dev', 'stage', 'prod'],
             description: 'Select the deployment environment'
         )
-        booleanParam(name: 'APPLY_INFRA',   defaultValue: false, description: '✅ Apply Terraform changes automatically')
+        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '✅ Apply Terraform changes automatically')
         booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy infrastructure for selected environment')
         booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback infrastructure if apply fails')
     }
@@ -55,7 +55,7 @@ pipeline {
                 stage('Lint (tflint)') {
                     steps {
                         dir("${TF_DIR}") {
-                            sh "tflint --chdir=${TF_DIR} || true"
+                            sh "tflint || true"
                         }
                     }
                 }
@@ -67,6 +67,7 @@ pipeline {
                 dir("${TF_DIR}") {
                     echo "🚀 Initializing Terraform backend for ${ENV}"
                     sh """
+                    test -f envs/${ENV}/backend.conf || (echo '❌ Missing backend.conf for ${ENV}' && exit 1)
                     rm -rf .terraform .terraform.lock.hcl
                     terraform init -reconfigure -input=false \
                       -backend-config=envs/${ENV}/backend.conf \
@@ -80,10 +81,8 @@ pipeline {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    sh '''
-                        terraform init -reconfigure -input=false
-                        terraform validate
-                    '''
+                    echo "🔎 Validating Terraform configuration..."
+                    sh "terraform validate"
                 }
             }
         }
@@ -100,6 +99,7 @@ pipeline {
                     terraform show -no-color tfplan > tfplan.txt
                     """
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
+                    archiveArtifacts artifacts: 'tfplan', fingerprint: true
                 }
             }
         }
@@ -131,7 +131,7 @@ pipeline {
                         if (applyStatus != 0) {
                             echo "❌ Terraform apply failed for ${ENV}"
                             if (params.ROLLBACK_ON_FAILURE) {
-                                echo "🔁 Rollback initiated (refresh-only)..."
+                                echo "🔁 Rolling back ${ENV} infrastructure..."
                                 sh "terraform apply -refresh-only -auto-approve -var-file=${TF_VAR_FILE} || true"
                                 notifySlack("⚠️ Refresh-only rollback executed for *${ENV}* after failed apply")
                             }
@@ -153,7 +153,6 @@ pipeline {
             }
         }
 
-        // Auto-Promotion: DEV → STAGE
         stage('Promote to Stage') {
             when {
                 allOf {
@@ -172,7 +171,6 @@ pipeline {
             }
         }
 
-        // Manual Promotion: STAGE → PROD
         stage('Promote to Prod') {
             when {
                 allOf {
@@ -214,9 +212,6 @@ pipeline {
 /**
  * Slack Notification Helper
  */
-/**
- * Slack Notification Helper (Fixed Groovy-safe version)
- */
 def notifySlack(String message) {
     def color
     def emoji
@@ -243,8 +238,7 @@ def notifySlack(String message) {
     try {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
             def timestamp = System.currentTimeMillis() / 1000
-            def payload = """
-            {
+            def payload = """{
               "attachments": [{
                 "color": "${color}",
                 "title": "${emoji} ${message}",
@@ -257,15 +251,12 @@ def notifySlack(String message) {
                 "footer": "CloudMind DevOps CI/CD",
                 "ts": "${timestamp}"
               }]
-            }
-            """
+            }"""
 
-            // Escape single quotes before passing JSON to shell
-            def safePayload = payload.replace("'", "'\\''")
-
+            // send via pipe to avoid JSON truncation
             sh """
-              curl -X POST -H 'Content-type: application/json' \
-              --data '${safePayload}' "\${SLACK_WEBHOOK_URL}"
+              echo '${payload.replace("'", "'\\\\''")}' | \
+              curl -X POST -H 'Content-type: application/json' -d @- "\${SLACK_WEBHOOK_URL}"
             """
         }
     } catch (err) {
