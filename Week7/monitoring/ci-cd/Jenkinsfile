@@ -52,7 +52,9 @@ echo "-----------------------"
             steps {
                 echo "🚀 Initializing Terraform backend for ${ENV}"
                 sh """
+echo "Working Directory: \$(pwd)"
 echo "Using tfvars: ${TF_DIR}/${TF_VAR_FILE}"
+
 terraform -chdir="${TF_DIR}" init -reconfigure -input=false \
   -backend-config=envs/${ENV}/backend.conf \
   -backend-config=key=terraform-monitoring/${ENV}/terraform.tfstate \
@@ -74,7 +76,7 @@ terraform -chdir="${TF_DIR}" init -reconfigure -input=false \
             steps {
                 echo "📋 Creating Terraform plan for monitoring stack in ${ENV}..."
                 sh """
-echo "PWD before plan: $(pwd)"
+echo "PWD before plan: \$(pwd)"
 echo "Using tfvars: ${TF_DIR}/${TF_VAR_FILE}"
 
 terraform -chdir="${TF_DIR}" plan -input=false \
@@ -156,8 +158,8 @@ def notifySlack(String message) {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
             sh """
 curl -X POST -H 'Content-type: application/json' \
---data '{"text": "${message} - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"}' \
-"\${SLACK_WEBHOOK_URL}"
+--data '{\"text\": \"${message} - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}\"}' \
+\"\${SLACK_WEBHOOK_URL}\"
 """
         }
     } catch (err) {
