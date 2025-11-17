@@ -13,7 +13,9 @@ pipeline {
         TF_DIR                = "${WORKSPACE}/Week7/monitoring"
         TF_VAR_FILE           = "envs/${ENV}/${ENV}.tfvars"
         AWS_REGION            = "us-east-1"
-        TF_PLUGIN_CACHE_DIR   = "/var/lib/jenkins/.terraform.d/plugin-cache"
+
+        // IMPORTANT: Correct Terraform plugin cache for macOS Jenkins
+        TF_PLUGIN_CACHE_DIR   = "${env.JENKINS_HOME}/.terraform.d/plugin-cache"
     }
 
     options {
@@ -51,11 +53,11 @@ echo "-----------------------"
 
         stage('Prepare Terraform Plugin Cache') {
             steps {
-                echo "📦 Preparing Terraform plugin cache directory..."
+                echo "📦 Preparing Terraform plugin cache directory (macOS-safe)..."
                 sh """
-mkdir -p /var/lib/jenkins/.terraform.d/plugin-cache
-chmod -R 777 /var/lib/jenkins/.terraform.d/plugin-cache
-echo "TF Plugin Cache Directory Ready: $TF_PLUGIN_CACHE_DIR"
+mkdir -p "${JENKINS_HOME}/.terraform.d/plugin-cache"
+chmod -R 777 "${JENKINS_HOME}/.terraform.d/plugin-cache"
+echo "TF Plugin Cache Directory Ready: ${TF_PLUGIN_CACHE_DIR}"
 """
             }
         }
