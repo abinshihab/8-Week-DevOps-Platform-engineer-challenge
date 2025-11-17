@@ -16,6 +16,7 @@ pipeline {
 
         // IMPORTANT: Correct Terraform plugin cache for macOS Jenkins
         TF_PLUGIN_CACHE_DIR   = "${env.JENKINS_HOME}/.terraform.d/plugin-cache"
+        
     }
 
     options {

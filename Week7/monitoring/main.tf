@@ -1,6 +1,7 @@
 ############################################
-# Provider
+# Terraform & Provider Configuration
 ############################################
+
 terraform {
   required_version = ">= 1.6.0"
 
@@ -23,23 +24,23 @@ provider "aws" {
 }
 
 ############################################
-# CloudWatch Monitoring Module Integration
+# Monitoring Stack (CloudWatch Alerts Only)
 ############################################
 
 module "cloudwatch_alerts" {
   source = "../../modules/cloudwatch-alerts"
 
-  environment                 = var.environment
-  asg_name                    = var.asg_name
-  asg_cpu_threshold           = var.asg_cpu_threshold
+  # Environment & region
+  environment = var.environment
+
+  # Monitoring Inputs
   alb_arn_suffix              = var.alb_arn_suffix
   alb_target_group_arn_suffix = var.alb_target_group_arn_suffix
-  alerts_email                = var.alerts_email
+  asg_cpu_threshold           = var.asg_cpu_threshold
   alb_request_threshold       = var.alb_request_threshold
+  alerts_email                = var.alerts_email
 
+  # ASG name is irrelevant for Week7 — no compute module exists
+  asg_name = null
 }
-
-############################################
-# Optional: Outputs
-############################################
 
