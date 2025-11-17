@@ -9,10 +9,11 @@ pipeline {
     }
 
     environment {
-        ENV         = "${params.TARGET_ENV}"
-        TF_DIR      = "${WORKSPACE}/Week7/monitoring"
-        TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
-        AWS_REGION  = "us-east-1"
+        ENV                   = "${params.TARGET_ENV}"
+        TF_DIR                = "${WORKSPACE}/Week7/monitoring"
+        TF_VAR_FILE           = "envs/${ENV}/${ENV}.tfvars"
+        AWS_REGION            = "us-east-1"
+        TF_PLUGIN_CACHE_DIR   = "/var/lib/jenkins/.terraform.d/plugin-cache"
     }
 
     options {
@@ -35,16 +36,27 @@ pipeline {
                 echo "🔍 Checking workspace contents before Terraform..."
                 sh '''
 echo "----- DEBUG INFO -----"
-echo "Current directory (pwd):"
+echo "Current directory:"
 pwd
 echo ""
-echo "Listing all .tfvars files found in workspace:"
+echo "Listing .tfvars files:"
 find . -type f -name "*.tfvars" || echo "❌ No tfvars files found"
 echo ""
-echo "Listing structure under Week7/monitoring:"
-ls -R Week7/monitoring || echo "Week7/monitoring folder not found!"
+echo "Listing Week7/monitoring folder:"
+ls -R Week7/monitoring || echo "Folder not found!"
 echo "-----------------------"
 '''
+            }
+        }
+
+        stage('Prepare Terraform Plugin Cache') {
+            steps {
+                echo "📦 Preparing Terraform plugin cache directory..."
+                sh """
+mkdir -p /var/lib/jenkins/.terraform.d/plugin-cache
+chmod -R 777 /var/lib/jenkins/.terraform.d/plugin-cache
+echo "TF Plugin Cache Directory Ready: $TF_PLUGIN_CACHE_DIR"
+"""
             }
         }
 
