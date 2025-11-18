@@ -19,7 +19,7 @@ resource "aws_sns_topic_subscription" "email" {
 # Auto Scaling Policies (Optional for Week6/Week8)
 ############################################
 resource "aws_autoscaling_policy" "scale_out" {
-  count = (var.enable_scaling && var.asg_name != null) ? 1 : 0
+  count = var.enable_scaling && length(var.asg_name) > 0 ? 1 : 0
 
   name                   = "${var.environment}-cpu-scale-out"
   scaling_adjustment     = 1
@@ -28,7 +28,7 @@ resource "aws_autoscaling_policy" "scale_out" {
 }
 
 resource "aws_autoscaling_policy" "scale_in" {
-  count = (var.enable_scaling && var.asg_name != null) ? 1 : 0
+  count = var.enable_scaling && length(var.asg_name) > 0 ? 1 : 0
 
   name                   = "${var.environment}-cpu-scale-in"
   scaling_adjustment     = -1
