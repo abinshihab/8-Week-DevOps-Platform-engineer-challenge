@@ -1,14 +1,16 @@
 ############################################
-# 📊 Monitoring Configuration (for Week 7)
+# 📊 Monitoring Configuration (Week 7 - STAGE)
 ############################################
-region                      = "us-east-1"
-environment                 = "stage"
-asg_name                    = "web-asg-stage"
-asg_cpu_threshold            = 75
-alb_arn_suffix              = "app/cloudmind-alb-stage/abcd1234"
-alb_target_group_arn_suffix = "targetgroup/cloudmind-tg-stage/efgh5678"
-alb_request_threshold       = 120
-alerts_email                = "a.shihab@hotmail.com"
+
+region      = "us-east-1"
+environment = "stage"
+
+# Stage thresholds may be stricter or same as dev
+asg_cpu_threshold     = 70
+alb_request_threshold = 80
+
+# Stage notifications can go to your same email or group email
+alerts_email = "a.shihab@hotmail.com"
 
 tags = {
   Environment = "stage"

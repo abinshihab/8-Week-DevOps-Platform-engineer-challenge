@@ -2,12 +2,13 @@
 # CloudWatch Alerts Module 
 ############################################
 
-# SNS Topic for sending alerts
+############################################
+# SNS Topic for Alerts
+############################################
 resource "aws_sns_topic" "alerts" {
   name = "${var.environment}-alerts"
 }
 
-# SNS Subscription (Email)
 resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
@@ -15,10 +16,11 @@ resource "aws_sns_topic_subscription" "email" {
 }
 
 ############################################
-# Auto Scaling Policies
+# Auto Scaling Policies (Optional for Week6/Week8)
 ############################################
-
 resource "aws_autoscaling_policy" "scale_out" {
+  count = (var.enable_scaling && var.asg_name != null) ? 1 : 0
+
   name                   = "${var.environment}-cpu-scale-out"
   scaling_adjustment     = 1
   adjustment_type        = "ChangeInCapacity"
@@ -26,6 +28,8 @@ resource "aws_autoscaling_policy" "scale_out" {
 }
 
 resource "aws_autoscaling_policy" "scale_in" {
+  count = (var.enable_scaling && var.asg_name != null) ? 1 : 0
+
   name                   = "${var.environment}-cpu-scale-in"
   scaling_adjustment     = -1
   adjustment_type        = "ChangeInCapacity"
@@ -33,11 +37,11 @@ resource "aws_autoscaling_policy" "scale_in" {
 }
 
 ############################################
-# CloudWatch Alarms
+# ASG CPU Alarm (Only if scaling + ASG exist)
 ############################################
-
-# Alarm for High CPU in ASG
 resource "aws_cloudwatch_metric_alarm" "asg_cpu_high" {
+  count = (var.asg_name != null) ? 1 : 0
+
   alarm_name          = "${var.environment}-asg-cpu-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
@@ -46,20 +50,25 @@ resource "aws_cloudwatch_metric_alarm" "asg_cpu_high" {
   period              = 60
   statistic           = "Average"
   threshold           = var.asg_cpu_threshold
-  alarm_description   = "Alarm when ASG average CPU exceeds ${var.asg_cpu_threshold}%"
+  alarm_description   = "Alarm when ASG CPU exceeds ${var.asg_cpu_threshold}%"
+
   dimensions = {
     AutoScalingGroupName = var.asg_name
   }
-  alarm_actions = [
-    aws_autoscaling_policy.scale_out.arn,
+
+  alarm_actions = var.enable_scaling ? [
+    aws_autoscaling_policy.scale_out[0].arn,
     aws_sns_topic.alerts.arn
-  ]
-  ok_actions = [
-    aws_autoscaling_policy.scale_in.arn
-  ]
+  ] : [aws_sns_topic.alerts.arn]
+
+  ok_actions = var.enable_scaling ? [
+    aws_autoscaling_policy.scale_in[0].arn
+  ] : []
 }
 
-# Alarm for ALB Unhealthy Hosts
+############################################
+# ALB Unhealthy Hosts Alarm
+############################################
 resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   alarm_name          = "${var.environment}-alb-unhealthy-hosts"
   comparison_operator = "GreaterThanThreshold"
@@ -70,14 +79,18 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   statistic           = "Average"
   threshold           = 1
   alarm_description   = "Alarm when ALB has unhealthy targets"
+
   dimensions = {
     LoadBalancer = var.alb_arn_suffix
     TargetGroup  = var.alb_target_group_arn_suffix
   }
+
   alarm_actions = [aws_sns_topic.alerts.arn]
 }
 
-# Alarm for ALB High Request Count (Traffic-Based Scaling)
+############################################
+# ALB High Request Count Alarm (Traffic Scaling)
+############################################
 resource "aws_cloudwatch_metric_alarm" "alb_high_request_count" {
   alarm_name          = "${var.environment}-alb-high-request-count"
   comparison_operator = "GreaterThanThreshold"
@@ -88,34 +101,34 @@ resource "aws_cloudwatch_metric_alarm" "alb_high_request_count" {
   statistic           = "Sum"
   threshold           = var.alb_request_threshold
   alarm_description   = "Alarm when ALB request count exceeds threshold"
+
   dimensions = {
     LoadBalancer = var.alb_arn_suffix
     TargetGroup  = var.alb_target_group_arn_suffix
   }
-  alarm_actions = [
-    aws_autoscaling_policy.scale_out.arn,
+
+  alarm_actions = var.enable_scaling ? [
+    aws_autoscaling_policy.scale_out[0].arn,
     aws_sns_topic.alerts.arn
-  ]
-  ok_actions = [
-    aws_autoscaling_policy.scale_in.arn
-  ]
+  ] : [aws_sns_topic.alerts.arn]
+
+  ok_actions = var.enable_scaling ? [
+    aws_autoscaling_policy.scale_in[0].arn
+  ] : []
 }
 
 ############################################
 # IAM Role for CloudWatch Agent on EC2
 ############################################
-
 resource "aws_iam_role" "ec2_cw_agent_role" {
   name = "${var.environment}-ec2-cloudwatch-agent-role"
 
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": { "Service": "ec2.amazonaws.com" },
+      "Action": "sts:AssumeRole"
     }]
   })
 }
@@ -123,4 +136,8 @@ resource "aws_iam_role" "ec2_cw_agent_role" {
 resource "aws_iam_role_policy_attachment" "cw_agent_policy" {
   role       = aws_iam_role.ec2_cw_agent_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+locals {
+  enable_scaling = var.enable_scaling
 }

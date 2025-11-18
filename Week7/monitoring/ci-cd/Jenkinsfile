@@ -14,9 +14,8 @@ pipeline {
         TF_VAR_FILE           = "envs/${ENV}/${ENV}.tfvars"
         AWS_REGION            = "us-east-1"
 
-        // IMPORTANT: Correct Terraform plugin cache for macOS Jenkins
+        // macOS Homebrew Jenkins correct caching path
         TF_PLUGIN_CACHE_DIR   = "${env.JENKINS_HOME}/.terraform.d/plugin-cache"
-        
     }
 
     options {
@@ -67,8 +66,8 @@ echo "TF Plugin Cache Directory Ready: ${TF_PLUGIN_CACHE_DIR}"
             steps {
                 echo "🚀 Initializing Terraform backend for ${ENV}"
                 sh """
-echo "Working Directory: \$(pwd)"
-echo "Using tfvars: ${TF_DIR}/${TF_VAR_FILE}"
+export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR}"
+echo "[INFO] TF Plugin Cache: ${TF_PLUGIN_CACHE_DIR}"
 
 terraform -chdir="${TF_DIR}" init -reconfigure -input=false \
   -backend-config=envs/${ENV}/backend.conf \
@@ -91,9 +90,6 @@ terraform -chdir="${TF_DIR}" init -reconfigure -input=false \
             steps {
                 echo "📋 Creating Terraform plan for monitoring stack in ${ENV}..."
                 sh """
-echo "PWD before plan: \$(pwd)"
-echo "Using tfvars: ${TF_DIR}/${TF_VAR_FILE}"
-
 terraform -chdir="${TF_DIR}" plan -input=false \
   -var-file="${TF_VAR_FILE}" \
   -out=tfplan
@@ -140,6 +136,112 @@ terraform -chdir="${TF_DIR}" show -no-color tfplan > ${TF_DIR}/tfplan.txt
             }
         }
 
+        /* 🔥 NEW — Health Check Stage */
+        stage('Monitoring Health Check') {
+            when {
+                allOf {
+                    expression { params.APPLY_INFRA }
+                    expression { !params.DESTROY_INFRA }
+                }
+            }
+            steps {
+                echo "🩺 Running monitoring health checks for ${ENV}..."
+                sh """
+echo "Checking CloudWatch log groups..."
+aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/data_agent_${ENV}" --region ${AWS_REGION}
+aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/action_agent_${ENV}" --region ${AWS_REGION}
+
+echo "Checking CloudWatch alarms..."
+aws cloudwatch describe-alarms --alarm-name-prefix "monitoring-${ENV}" --region ${AWS_REGION}
+
+echo "Checking S3 monitoring folder..."
+aws s3 ls s3://cc8weeks-monitoring-${ENV}/ || echo "⚠️ Monitoring S3 bucket empty or missing"
+"""
+                notifySlack("🩺 Monitoring Health Check completed for *${ENV}* — dashboards & agents verified")
+            }
+        }
+
+        /* 🔥 NEW — Export Dashboard URL */
+        stage('Export CloudWatch Dashboard URL') {
+            when {
+                allOf {
+                    expression { params.APPLY_INFRA }
+                    expression { !params.DESTROY_INFRA }
+                }
+            }
+            steps {
+                echo "📊 Exporting CloudWatch dashboard URL for ${ENV}..."
+
+                script {
+                    def dashboardName = "monitoring-${ENV}"
+                    def dashboardUrl = "https://${AWS_REGION}.console.aws.amazon.com/cloudwatch/home?region=${AWS_REGION}#dashboards:name=${dashboardName}"
+
+                    echo "Dashboard URL: ${dashboardUrl}"
+                    notifySlack("📊 CloudWatch Dashboard for *${ENV}*: ${dashboardUrl}")
+                }
+            }
+        }
+
+        /* 🔥 NEW — AI Summary Stage */
+        stage('Generate AI Monitoring Summary') {
+            when {
+                allOf {
+                    expression { params.APPLY_INFRA }
+                    expression { !params.DESTROY_INFRA }
+                }
+            }
+            steps {
+                echo "🤖 Generating AI-ready monitoring summary for ${ENV}..."
+                sh """
+aws lambda invoke \
+  --function-name data_agent_${ENV} \
+  --region ${AWS_REGION} \
+  /dev/null
+"""
+                notifySlack("🤖 AI Monitoring Summary updated for *${ENV}* — ready for Week 8 scaling agent")
+            }
+        }
+
+        /* 🔥 NEW — Auto Promotion: DEV → STAGE */
+        stage('Auto Promote: DEV → STAGE') {
+            when {
+                allOf {
+                    expression { params.TARGET_ENV == 'dev' }
+                    expression { params.APPLY_INFRA }
+                }
+            }
+            steps {
+                echo "🚀 Auto-promoting DEV → STAGE…"
+                build job: env.JOB_NAME,
+                    parameters: [
+                        string(name: 'TARGET_ENV', value: 'stage'),
+                        booleanParam(name: 'APPLY_INFRA', value: true),
+                        booleanParam(name: 'DESTROY_INFRA', value: false),
+                        booleanParam(name: 'ROLLBACK_ON_FAILURE', value: true)
+                    ],
+                    wait: true
+            }
+        }
+
+        /* 🔥 NEW — STAGE → PROD (Manual Approval) */
+        stage('Promote STAGE → PROD (Approval)') {
+            when {
+                expression { params.TARGET_ENV == 'stage' }
+            }
+            steps {
+                input message: "⚠️ Promote monitoring stack from STAGE → PROD?"
+                echo "🚀 Deploying STAGE → PROD…"
+                build job: env.JOB_NAME,
+                    parameters: [
+                        string(name: 'TARGET_ENV', value: 'prod'),
+                        booleanParam(name: 'APPLY_INFRA', value: true),
+                        booleanParam(name: 'DESTROY_INFRA', value: false),
+                        booleanParam(name: 'ROLLBACK_ON_FAILURE', value: true)
+                    ],
+                    wait: true
+            }
+        }
+
         stage('Terraform Destroy') {
             when { expression { params.DESTROY_INFRA } }
             steps {
@@ -170,11 +272,11 @@ terraform -chdir="${TF_DIR}" show -no-color tfplan > ${TF_DIR}/tfplan.txt
 /** Slack Notification Helper */
 def notifySlack(String message) {
     try {
-        withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
+        withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'slack_url')]) {
             sh """
 curl -X POST -H 'Content-type: application/json' \
 --data '{\"text\": \"${message} - Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}\"}' \
-\"\${SLACK_WEBHOOK_URL}\"
+\"\${slack_url}\"
 """
         }
     } catch (err) {

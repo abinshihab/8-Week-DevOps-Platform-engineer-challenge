@@ -1,0 +1,190 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 24,
+      "height": 2,
+      "properties": {
+        "markdown": "# 🚀 ${environment} Monitoring Dashboard\n### Real-time visibility · Modern layout · AI-ready metrics"
+      }
+    },
+
+
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 2,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "🌐 ALB Latency (p50 / p90 / p99)",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false,
+        "setPeriodToTimeRange": true,
+        "legend": { "position": "bottom" },
+        "metrics": [
+          [ "AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "${alb_arn_suffix}", { "stat": "p50", "color": "#37D1FF" } ],
+          [ "...", { "stat": "p90", "color": "#FFB347" } ],
+          [ "...", { "stat": "p99", "color": "#FF5733" } ]
+        ]
+      }
+    },
+
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 2,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "📈 ALB Request Count per Target Group",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "legend": { "position": "bottom" },
+        "metrics": [
+          [ "AWS/ApplicationELB", "RequestCount", "TargetGroup", "${alb_target_group_arn_suffix}", "LoadBalancer", "${alb_arn_suffix}", { "color": "#00E396" } ]
+        ]
+      }
+    },
+
+
+
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 8,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "❗ ALB HTTP Errors (4xx/5xx)",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "legend": { "position": "bottom" },
+        "metrics": [
+          [ "AWS/ApplicationELB", "HTTPCode_ELB_4XX_Count", "LoadBalancer", "${alb_arn_suffix}", { "color": "#FFA500" } ],
+          [ ".", "HTTPCode_ELB_5XX_Count", ".", ".", { "color": "#FF0000" } ]
+        ]
+      }
+    },
+
+
+
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 8,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "🖥️ EC2 CPU Utilization",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "legend": { "position": "bottom" },
+        "metrics": [
+          [ "AWS/EC2", "CPUUtilization", "InstanceId", "${instance_id}", { "stat": "Average", "color": "#00BFFF" } ]
+        ]
+      }
+    },
+
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 14,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "📊 EC2 Memory Usage",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "legend": { "position": "bottom" },
+        "metrics": [
+          [ "CWAgent", "mem_used_percent", "InstanceId", "${instance_id}", { "color": "#4CAF50" } ]
+        ]
+      }
+    },
+
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 14,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "💽 EC2 Disk Usage %",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "legend": { "position": "bottom" },
+        "metrics": [
+          [ "CWAgent", "disk_used_percent", "InstanceId", "${instance_id}", "path", "/", { "color": "#B565A7" } ]
+        ]
+      }
+    },
+
+
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 20,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "🔌 EC2 Network Traffic (In/Out)",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "legend": { "position": "bottom" },
+        "metrics": [
+          [ "AWS/EC2", "NetworkIn", "InstanceId", "${instance_id}", { "color": "#008FFB" } ],
+          [ ".", "NetworkOut", ".", ".", { "color": "#FF4560" } ]
+        ]
+      }
+    },
+
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 20,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "📦 ASG Capacity (Desired vs InService)",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "legend": { "position": "bottom" },
+        "metrics": [
+          [ "AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", "${asg_name}", { "color": "#00E396" } ],
+          [ ".", "GroupInServiceInstances", ".", ".", { "color": "#FEB019" } ]
+        ]
+      }
+    },
+
+
+    {
+      "type": "log",
+      "x": 0,
+      "y": 26,
+      "width": 24,
+      "height": 8,
+      "properties": {
+        "title": "📝 CloudWatch Agent Logs (Latest Errors)",
+        "region": "us-east-1",
+        "query": "SOURCE '/aws/amazon-cloudwatch-agent' | filter @message like /error/i | fields @timestamp, @message | sort @timestamp desc | limit 50"
+      }
+    },
+
+    {
+      "type": "log",
+      "x": 0,
+      "y": 34,
+      "width": 24,
+      "height": 8,
+      "properties": {
+        "title": "📉 Error Trends (Last 5 Minutes)",
+        "region": "us-east-1",
+        "query": "SOURCE '/aws/amazon-cloudwatch-agent' | filter @message like /error/ | stats count() by bin(5m)"
+      }
+    }
+  ]
+}

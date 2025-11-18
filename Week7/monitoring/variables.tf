@@ -3,7 +3,7 @@
 ############################################
 
 variable "region" {
-  description = "AWS region"
+  description = "AWS region for monitoring resources"
   type        = string
   default     = "us-east-1"
 }
@@ -13,25 +13,14 @@ variable "environment" {
   type        = string
 }
 
-variable "asg_name" {
-  description = "Name of the Auto Scaling Group to monitor"
-  type        = string
-}
+############################################
+# Monitoring Thresholds (Configurable)
+############################################
 
 variable "asg_cpu_threshold" {
   description = "CPU utilization threshold for ASG alarm"
   type        = number
   default     = 75
-}
-
-variable "alb_arn_suffix" {
-  description = "Application Load Balancer ARN suffix"
-  type        = string
-}
-
-variable "alb_target_group_arn_suffix" {
-  description = "Target group ARN suffix for ALB"
-  type        = string
 }
 
 variable "alb_request_threshold" {
@@ -40,16 +29,36 @@ variable "alb_request_threshold" {
   default     = 100
 }
 
+############################################
+# Alerts & Notifications
+############################################
+
 variable "alerts_email" {
-  description = "Email address to receive SNS alerts"
+  description = "Email address to receive CloudWatch and SNS alerts"
   type        = string
 }
 
+############################################
+# Scaling Control (Enabled in Week 8)
+############################################
+
+variable "enable_scaling" {
+  description = "Enable or disable autoscaling policy creation"
+  type        = bool
+  default     = false
+}
+
+############################################
+# Standardized Tags for Monitoring Resources
+############################################
+
 variable "tags" {
-  description = "Common resource tags"
+  description = "Common resource tags applied to monitoring resources"
   type        = map(string)
   default = {
     Project   = "CloudMind"
     Challenge = "8-Week-DevOps"
+    Owner     = "Ahmed Bin Shehab"
+    Layer     = "Monitoring"
   }
 }
