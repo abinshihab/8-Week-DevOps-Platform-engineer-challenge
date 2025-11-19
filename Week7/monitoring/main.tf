@@ -12,8 +12,12 @@ terraform {
     }
   }
 
-  # Backend: Jenkins will pass backend.conf
-  backend "s3" {}
+  # Backend configuration provided via backend.conf (by Jenkins)
+  backend "s3" {
+    bucket = ""
+    key    = ""
+    region = ""
+  }
 }
 
 provider "aws" {
@@ -54,7 +58,7 @@ module "cloudwatch_alerts" {
 
   environment                 = var.environment
 
-  # Imported automatically from Week 6
+  # Pulled automatically from Week 6
   alb_arn_suffix              = local.alb_arn_suffix
   alb_target_group_arn_suffix = local.alb_target_group_arn_suffix
   asg_name                    = local.asg_name
@@ -64,7 +68,7 @@ module "cloudwatch_alerts" {
   alb_request_threshold = var.alb_request_threshold
   alerts_email          = var.alerts_email
 
-  # FIXED: New variable name required by the module
+  # Corrected: New module variable
   enable_asg_scaling = var.enable_scaling
 }
 
@@ -78,7 +82,7 @@ resource "aws_cloudwatch_dashboard" "main" {
   dashboard_body = templatefile("${path.module}/dashboards/main-dashboard.json", {
     environment                 = var.environment
 
-    # Infra details coming straight from Week 6
+    # Week 6 outputs (auto-loaded)
     instance_id                 = local.instance_id
     asg_name                    = local.asg_name
     alb_arn_suffix              = local.alb_arn_suffix
