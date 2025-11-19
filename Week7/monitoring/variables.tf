@@ -62,3 +62,8 @@ variable "tags" {
     Layer     = "Monitoring"
   }
 }
+variable "enable_scaling" {
+  description = "Toggle scaling policy creation"
+  type        = bool
+  default     = false
+}

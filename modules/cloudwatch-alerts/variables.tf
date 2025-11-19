@@ -45,3 +45,8 @@ variable "alerts_email" {
   description = "Email to send CloudWatch/SNS alerts to"
   type        = string
 }
+variable "enable_asg_scaling" {
+  description = "Enable or disable the creation of ASG scaling policies"
+  type        = bool
+  default     = false
+}
