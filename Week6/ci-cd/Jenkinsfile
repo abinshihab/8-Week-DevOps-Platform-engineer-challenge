@@ -7,9 +7,9 @@ pipeline {
             choices: ['dev', 'stage', 'prod'],
             description: 'Select the deployment environment'
         )
-        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '✅ Apply Terraform changes automatically')
+        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '⚡ Apply Terraform changes automatically')
         booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy infrastructure for selected environment')
-        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback infrastructure if apply fails')
+        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback if apply fails')
     }
 
     environment {
@@ -65,13 +65,11 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    echo "🚀 Initializing Terraform backend for ${ENV}"
+                    echo "🚀 Initializing Terraform for ${ENV}"
                     sh """
-                    test -f envs/${ENV}/backend.conf || (echo '❌ Missing backend.conf for ${ENV}' && exit 1)
                     rm -rf .terraform .terraform.lock.hcl
                     terraform init -reconfigure -input=false \
-                      -backend-config=envs/${ENV}/backend.conf \
-                      -var-file=${TF_VAR_FILE}
+                      -backend-config=envs/${ENV}/backend.conf
                     """
                 }
             }
@@ -91,28 +89,29 @@ pipeline {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "📋 Creating Terraform plan for ${ENV}..."
+                    echo "📝 Generating Terraform plan..."
                     sh """
                     terraform plan -input=false \
                       -var-file=${TF_VAR_FILE} \
                       -out=tfplan
+
                     terraform show -no-color tfplan > tfplan.txt
                     """
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
-                    archiveArtifacts artifacts: 'tfplan', fingerprint: true
                 }
             }
         }
 
-        stage('Manual Approval (for PROD)') {
+        stage('Manual Approval (PROD only)') {
             when {
                 allOf {
                     expression { params.TARGET_ENV == 'prod' }
+                    expression { params.APPLY_INFRA }
                     expression { !params.DESTROY_INFRA }
                 }
             }
             steps {
-                input message: "⚠️ Approve deployment to *PROD* environment?", ok: "Deploy"
+                input message: "⚠️ Approve deployment to PROD?", ok: "Deploy"
             }
         }
 
@@ -128,14 +127,17 @@ pipeline {
                     echo "⚡ Applying Terraform for ${ENV}..."
                     script {
                         def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
+
                         if (applyStatus != 0) {
                             echo "❌ Terraform apply failed for ${ENV}"
+
                             if (params.ROLLBACK_ON_FAILURE) {
-                                echo "🔁 Rolling back ${ENV} infrastructure..."
+                                echo "🔁 Running refresh-only rollback..."
                                 sh "terraform apply -refresh-only -auto-approve -var-file=${TF_VAR_FILE} || true"
-                                notifySlack("⚠️ Refresh-only rollback executed for *${ENV}* after failed apply")
+                                notifySlack("⚠️ Refresh-only rollback executed for ${ENV}")
                             }
-                            error("Terraform apply failed with exit code ${applyStatus}")
+
+                            error("Apply failed with exit code ${applyStatus}")
                         }
                     }
                 }
@@ -146,46 +148,9 @@ pipeline {
             when { expression { params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    input message: "💣 Confirm destroy of *${ENV}* environment?", ok: "Yes, destroy it!"
-                    echo "🔥 Destroying Terraform resources for ${ENV}..."
+                    echo "💣 Destroying infrastructure for ${ENV}..."
                     sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
                 }
-            }
-        }
-
-        stage('Promote to Stage') {
-            when {
-                allOf {
-                    expression { params.TARGET_ENV == 'dev' }
-                    expression { currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
-            steps {
-                echo "🚀 Dev deployment successful — promoting to Stage..."
-                build job: env.JOB_NAME,
-                      parameters: [
-                          string(name: 'TARGET_ENV', value: 'stage'),
-                          booleanParam(name: 'APPLY_INFRA', value: true)
-                      ],
-                      wait: false
-            }
-        }
-
-        stage('Promote to Prod') {
-            when {
-                allOf {
-                    expression { params.TARGET_ENV == 'stage' }
-                    expression { currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
-            steps {
-                input message: "🚦 Approve promotion to *PROD*?", ok: "Proceed"
-                build job: env.JOB_NAME,
-                      parameters: [
-                          string(name: 'TARGET_ENV', value: 'prod'),
-                          booleanParam(name: 'APPLY_INFRA', value: true)
-                      ],
-                      wait: false
             }
         }
     }
@@ -193,73 +158,30 @@ pipeline {
     post {
         success {
             echo "✅ Pipeline completed successfully for ${ENV}"
-            script { notifySlack("✅ Terraform Apply succeeded for *${ENV}*") }
+            script { notifySlack("✅ Terraform Apply succeeded for ${ENV}") }
         }
-
         failure {
             echo "❌ Pipeline failed for ${ENV}"
-            script { notifySlack("❌ Terraform Pipeline failed for *${ENV}*") }
+            script { notifySlack("❌ Terraform Pipeline failed for ${ENV}") }
         }
-
         always {
-            echo "📦 Archiving artifacts and cleaning workspace..."
-            archiveArtifacts artifacts: '**/tfplan.txt', onlyIfSuccessful: false
+            echo "🧹 Cleaning workspace..."
             cleanWs(deleteDirs: true)
         }
     }
 }
 
-/**
- * Slack Notification Helper
- */
+/* Slack Notification Helper */
 def notifySlack(String message) {
-    def color
-    def emoji
-    def statusText
-
-    if (message.contains("✅")) {
-        color = '#36a64f'
-        emoji = '✅'
-        statusText = 'SUCCESS'
-    } else if (message.contains("❌")) {
-        color = '#ff0000'
-        emoji = '❌'
-        statusText = 'FAILURE'
-    } else if (message.contains("⚠️")) {
-        color = '#ffae42'
-        emoji = '⚠️'
-        statusText = 'WARNING'
-    } else {
-        color = '#439FE0'
-        emoji = 'ℹ️'
-        statusText = 'INFO'
-    }
-
     try {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_WEBHOOK_URL')]) {
-            def timestamp = System.currentTimeMillis() / 1000
-            def payload = """{
-              "attachments": [{
-                "color": "${color}",
-                "title": "${emoji} ${message}",
-                "fields": [
-                  {"title": "Job", "value": "${env.JOB_NAME}", "short": true},
-                  {"title": "Build #", "value": "${env.BUILD_NUMBER}", "short": true},
-                  {"title": "Environment", "value": "${params.TARGET_ENV}", "short": true},
-                  {"title": "Status", "value": "${statusText}", "short": true}
-                ],
-                "footer": "CloudMind DevOps CI/CD",
-                "ts": "${timestamp}"
-              }]
-            }"""
-
-            // send via pipe to avoid JSON truncation
             sh """
-              echo '${payload.replace("'", "'\\\\''")}' | \
-              curl -X POST -H 'Content-type: application/json' -d @- "\${SLACK_WEBHOOK_URL}"
+            curl -X POST -H 'Content-type: application/json' \
+            --data '{\"text\": \"${message}\"}' \
+            "\${SLACK_WEBHOOK_URL}"
             """
         }
     } catch (err) {
-        echo "ℹ️ Slack webhook not configured; skipping notification."
+        echo "ℹ️ Slack webhook not configured"
     }
 }
