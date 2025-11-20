@@ -5,11 +5,10 @@ pipeline {
         choice(
             name: 'TARGET_ENV',
             choices: ['dev', 'stage', 'prod'],
-            description: '🌍 Select the deployment environment'
+            description: '🌍 Select deployment environment'
         )
-        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '⚡ Apply Terraform changes automatically')
-        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy infrastructure for selected environment')
-        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback on failed apply')
+        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '⚡ Apply Terraform changes')
+        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy environment')
     }
 
     environment {
@@ -17,88 +16,55 @@ pipeline {
         TF_DIR      = "${WORKSPACE}/Week6"
         TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
         TF_BACKEND  = "envs/${ENV}/backend.conf"
-        AWS_REGION  = "us-east-1"
-
-        // Infracost config
-        INFRACOST_API_KEY = credentials('infracost_api_key')
     }
 
     options {
-        timeout(time: 90, unit: 'MINUTES')
         timestamps()
         disableConcurrentBuilds()
-        buildDiscarder(logRotator(numToKeepStr: '20'))
     }
 
     stages {
 
         stage('📦 Checkout Code') {
             steps {
+                echo "🔄 Pulling latest code from repository..."
                 checkout scm
-            }
-        }
-
-        stage('🧪 Code Quality & Security Checks') {
-            when { expression { !params.DESTROY_INFRA } }
-            parallel {
-                stage('🧹 terraform fmt') {
-                    steps {
-                        dir("${TF_DIR}") { sh "terraform fmt -check -recursive || true" }
-                    }
-                }
-                stage('🔍 tfsec Security Scan') {
-                    steps {
-                        dir("${TF_DIR}") { sh "tfsec . || true" }
-                    }
-                }
-                stage('🧰 tflint') {
-                    steps {
-                        dir("${TF_DIR}") { sh "tflint || true" }
-                    }
-                }
             }
         }
 
         stage('🚀 Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
+                    echo "🧩 Initializing Terraform backend for ${ENV}..."
                     sh """
                     rm -rf .terraform .terraform.lock.hcl
                     terraform init -reconfigure -input=false \
-                      -backend-config=${TF_BACKEND}
+                        -backend-config=${TF_BACKEND}
                     """
                 }
             }
         }
 
-        stage('🛡 Drift Detection (Pre-plan)') {
+        stage('🔎 Terraform Validate') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    script {
-                        def driftCode = sh(script: """
-                          terraform plan -detailed-exitcode -input=false -var-file=${TF_VAR_FILE} >/dev/null 2>&1
-                        """, returnStatus: true)
-
-                        if (driftCode == 2) {
-                            echo "⚠️ DRIFT DETECTED in ${ENV}"
-                            notifySlack("⚠️ Drift detected in *${ENV}* environment — review recommended!")
-                        } else {
-                            echo "✅ No drift detected for ${ENV}"
-                        }
-                    }
+                    echo "📘 Validating Terraform configuration..."
+                    sh "terraform validate"
                 }
             }
         }
 
-        stage('📋 Terraform Plan') {
+        stage('📝 Terraform Plan') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
+                    echo "🛠 Generating Terraform plan for ${ENV}..."
                     sh """
                     terraform plan -input=false \
-                      -var-file=${TF_VAR_FILE} \
-                      -out=tfplan
+                        -var-file=${TF_VAR_FILE} \
+                        -out=tfplan
+
                     terraform show -no-color tfplan > tfplan.txt
                     """
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
@@ -106,34 +72,7 @@ pipeline {
             }
         }
 
-        stage('💸 Cost Estimation (Infracost)') {
-            when { expression { !params.DESTROY_INFRA } }
-            steps {
-                dir("${TF_DIR}") {
-                    sh """
-                    infracost breakdown \
-                      --path tfplan \
-                      --format json \
-                      --out-file infracost.json
-                    """
-
-                    sh """
-                    infracost output \
-                      --format table \
-                      --path infracost.json > infracost.txt
-                    """
-
-                    archiveArtifacts artifacts: 'infracost.txt', fingerprint: true
-
-                    script {
-                        def msg = readFile("${TF_DIR}/infracost.txt")
-                        notifySlack("💸 *Infracost Report for ${ENV}:*\n```${msg}```")
-                    }
-                }
-            }
-        }
-
-        stage('🛑 Manual Approval (Prod Only)') {
+        stage('🛑 Approval (PROD Only)') {
             when {
                 allOf {
                     expression { params.TARGET_ENV == 'prod' }
@@ -142,12 +81,13 @@ pipeline {
                 }
             }
             steps {
-                input message: "⚠️ Confirm deployment to *PROD*?"
+                echo "⚠️ Waiting for PROD approval..."
+                input message: "⚠️ Approve deployment to *PROD* environment?", ok: "🚀 Deploy"
             }
         }
 
         stage('⚡ Terraform Apply') {
-            when {
+            when { 
                 allOf {
                     expression { params.APPLY_INFRA }
                     expression { !params.DESTROY_INFRA }
@@ -155,18 +95,8 @@ pipeline {
             }
             steps {
                 dir("${TF_DIR}") {
-                    script {
-                        def applyCode = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
-
-                        if (applyCode != 0) {
-                            echo "❌ Failed apply for ${ENV}"
-                            if (params.ROLLBACK_ON_FAILURE) {
-                                sh "terraform apply -refresh-only -auto-approve -var-file=${TF_VAR_FILE}"
-                                notifySlack("⚠️ Rollback executed for *${ENV}* due to apply failure")
-                            }
-                            error("Apply failed")
-                        }
-                    }
+                    echo "⚡ Applying Terraform changes for ${ENV}..."
+                    sh "terraform apply -input=false tfplan"
                 }
             }
         }
@@ -175,37 +105,17 @@ pipeline {
             when { expression { params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    sh """
-                    terraform destroy -auto-approve \
-                      -var-file=${TF_VAR_FILE}
-                    """
+                    echo "🔥 Destroying ${ENV} environment..."
+                    sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
                 }
             }
         }
     }
 
     post {
-        success {
-            notifySlack("✅ Terraform Pipeline SUCCESS for *${ENV}*")
-        }
-        failure {
-            notifySlack("❌ Terraform Pipeline FAILED for *${ENV}*")
-        }
         always {
-            cleanWs(deleteDirs: true)
+            echo "🧹 Cleaning workspace..."
+            script { cleanWs() }
         }
-    }
-}
-
-def notifySlack(String message) {
-    try {
-        withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_URL')]) {
-            sh """
-            curl -X POST -H 'Content-Type: application/json' \
-            --data '{\"text\": \"${message}\"}' "\${SLACK_URL}"
-            """
-        }
-    } catch (e) {
-        echo "Slack not configured"
     }
 }
