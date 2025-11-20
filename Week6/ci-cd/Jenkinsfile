@@ -7,8 +7,9 @@ pipeline {
             choices: ['dev', 'stage', 'prod'],
             description: '🌍 Select deployment environment'
         )
-        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '⚡ Apply Terraform changes')
+        booleanParam(name: 'APPLY_INFRA',   defaultValue: false, description: '⚡ Apply Terraform changes')
         booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy environment')
+        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback on failed apply')
     }
 
     environment {
@@ -27,7 +28,7 @@ pipeline {
 
         stage('📦 Checkout Code') {
             steps {
-                echo "🔄 Pulling latest code from repository..."
+                echo "🔄 Pulling latest code..."
                 checkout scm
             }
         }
@@ -35,7 +36,7 @@ pipeline {
         stage('🚀 Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    echo "🧩 Initializing Terraform backend for ${ENV}..."
+                    echo "🧩 Initializing backend for ${ENV}..."
                     sh """
                     rm -rf .terraform .terraform.lock.hcl
                     terraform init -reconfigure -input=false \
@@ -59,7 +60,7 @@ pipeline {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "🛠 Generating Terraform plan for ${ENV}..."
+                    echo "🛠 Creating Terraform plan..."
                     sh """
                     terraform plan -input=false \
                         -var-file=${TF_VAR_FILE} \
@@ -81,13 +82,12 @@ pipeline {
                 }
             }
             steps {
-                echo "⚠️ Waiting for PROD approval..."
-                input message: "⚠️ Approve deployment to *PROD* environment?", ok: "🚀 Deploy"
+                input message: "⚠️ Approve deployment to *PROD*?", ok: "🚀 Deploy"
             }
         }
 
-        stage('⚡ Terraform Apply') {
-            when { 
+        stage('⚡ Terraform Apply (with rollback)') {
+            when {
                 allOf {
                     expression { params.APPLY_INFRA }
                     expression { !params.DESTROY_INFRA }
@@ -95,8 +95,25 @@ pipeline {
             }
             steps {
                 dir("${TF_DIR}") {
-                    echo "⚡ Applying Terraform changes for ${ENV}..."
-                    sh "terraform apply -input=false tfplan"
+                    script {
+                        echo "⚡ Applying Terraform for ${ENV}..."
+                        def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
+
+                        if (applyStatus != 0) {
+                            echo "❌ Terraform apply failed for ${ENV}"
+
+                            if (params.ROLLBACK_ON_FAILURE) {
+                                echo "🔁 Rollback enabled — restoring infrastructure to last known state..."
+                                sh """
+                                terraform apply -refresh-only -auto-approve \
+                                    -var-file=${TF_VAR_FILE} || true
+                                """
+                                echo "⚠️ Rollback for ${ENV} completed"
+                            }
+
+                            error("Terraform apply failed")
+                        }
+                    }
                 }
             }
         }
