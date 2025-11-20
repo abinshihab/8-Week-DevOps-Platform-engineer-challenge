@@ -7,7 +7,7 @@ pipeline {
             choices: ['dev', 'stage', 'prod'],
             description: '🌍 Select deployment environment'
         )
-        booleanParam(name: 'APPLY_INFRA',   defaultValue: false, description: '⚡ Apply Terraform changes')
+        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '⚡ Apply Terraform changes')
         booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy environment')
         booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback on failed apply')
     }
@@ -17,6 +17,9 @@ pipeline {
         TF_DIR      = "${WORKSPACE}/Week6"
         TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
         TF_BACKEND  = "envs/${ENV}/backend.conf"
+
+        // Infracost
+        INFRACOST_API_KEY = credentials('infracost_api_key')
     }
 
     options {
@@ -30,6 +33,36 @@ pipeline {
             steps {
                 echo "🔄 Pulling latest code..."
                 checkout scm
+            }
+        }
+
+        stage('🧪 Parallel Code Quality Checks') {
+            when { expression { !params.DESTROY_INFRA } }
+            parallel {
+                
+                stage('🧹 terraform fmt') {
+                    steps {
+                        dir("${TF_DIR}") {
+                            sh "terraform fmt -recursive -check || true"
+                        }
+                    }
+                }
+
+                stage('🔍 tfsec') {
+                    steps {
+                        dir("${TF_DIR}") {
+                            sh "tfsec . || true"
+                        }
+                    }
+                }
+
+                stage('🧰 tflint') {
+                    steps {
+                        dir("${TF_DIR}") {
+                            sh "tflint || true"
+                        }
+                    }
+                }
             }
         }
 
@@ -50,7 +83,6 @@ pipeline {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "📘 Validating Terraform configuration..."
                     sh "terraform validate"
                 }
             }
@@ -65,10 +97,36 @@ pipeline {
                     terraform plan -input=false \
                         -var-file=${TF_VAR_FILE} \
                         -out=tfplan
-
                     terraform show -no-color tfplan > tfplan.txt
                     """
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
+                }
+            }
+        }
+
+        stage('💸 Infracost Cost Estimation') {
+            when { expression { !params.DESTROY_INFRA } }
+            steps {
+                dir("${TF_DIR}") {
+                    echo "💸 Running Infracost cost estimation..."
+
+                    sh """
+                    infracost breakdown \
+                      --path tfplan \
+                      --format json \
+                      --out-file infracost.json
+
+                    infracost output \
+                      --format table \
+                      --path infracost.json > infracost.txt
+                    """
+
+                    archiveArtifacts artifacts: 'infracost.txt', fingerprint: true
+
+                    script {
+                        def msg = readFile("${TF_DIR}/infracost.txt")
+                        notifySlack("💰 *Infracost Report for ${ENV}:*\n```${msg}```")
+                    }
                 }
             }
         }
@@ -96,22 +154,24 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     script {
-                        echo "⚡ Applying Terraform for ${ENV}..."
+                        echo "⚡ Applying changes..."
                         def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
 
                         if (applyStatus != 0) {
-                            echo "❌ Terraform apply failed for ${ENV}"
+                            echo "❌ Apply failed for ${ENV}"
 
                             if (params.ROLLBACK_ON_FAILURE) {
-                                echo "🔁 Rollback enabled — restoring infrastructure to last known state..."
+                                echo "🔁 Rollback: refresh-only apply..."
+
                                 sh """
                                 terraform apply -refresh-only -auto-approve \
                                     -var-file=${TF_VAR_FILE} || true
                                 """
-                                echo "⚠️ Rollback for ${ENV} completed"
+
+                                notifySlack("⚠️ Rollback executed for *${ENV}* after failed apply")
                             }
 
-                            error("Terraform apply failed")
+                            error("Apply failed")
                         }
                     }
                 }
@@ -122,7 +182,7 @@ pipeline {
             when { expression { params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "🔥 Destroying ${ENV} environment..."
+                    echo "🔥 Destroying ${ENV}..."
                     sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
                 }
             }
@@ -130,9 +190,29 @@ pipeline {
     }
 
     post {
+        success {
+            notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*")
+        }
+        failure {
+            notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*")
+        }
         always {
             echo "🧹 Cleaning workspace..."
             script { cleanWs() }
         }
+    }
+}
+
+/*** 🔔 Slack Notification Helper ***/
+def notifySlack(String message) {
+    try {
+        withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_URL')]) {
+            sh """
+            curl -X POST -H 'Content-Type: application/json' \
+                --data '{\"text\": \"${message}\"}' "\${SLACK_URL}"
+            """
+        }
+    } catch (e) {
+        echo "Slack notification failed: ${e}"
     }
 }
