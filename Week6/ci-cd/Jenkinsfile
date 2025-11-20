@@ -5,7 +5,7 @@ pipeline {
         choice(
             name: 'TARGET_ENV',
             choices: ['dev', 'stage', 'prod'],
-            description: '🌍 Select the deployment environment"
+            description: '🌍 Select the deployment environment'
         )
         booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '⚡ Apply Terraform changes automatically')
         booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy infrastructure for selected environment')
@@ -77,7 +77,7 @@ pipeline {
                 dir("${TF_DIR}") {
                     script {
                         def driftCode = sh(script: """
-                          terraform plan -input=false -detailed-exitcode -var-file=${TF_VAR_FILE} >/dev/null
+                          terraform plan -detailed-exitcode -input=false -var-file=${TF_VAR_FILE} >/dev/null 2>&1
                         """, returnStatus: true)
 
                         if (driftCode == 2) {
@@ -136,7 +136,7 @@ pipeline {
         stage('🛑 Manual Approval (Prod Only)') {
             when {
                 allOf {
-                    expression { params.ENV == 'prod' }
+                    expression { params.TARGET_ENV == 'prod' }
                     expression { params.APPLY_INFRA }
                     expression { !params.DESTROY_INFRA }
                 }
@@ -197,7 +197,6 @@ pipeline {
     }
 }
 
-/*** Slack Helper ***/
 def notifySlack(String message) {
     try {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_URL')]) {
