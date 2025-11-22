@@ -1,5 +1,7 @@
+node('master') {   // 🔥 Ensures workspace exists for ALL steps including post{}
+
 pipeline {
-    agent any
+    agent none     // 🔥 Prevents Jenkins from leaving the node early
 
     parameters {
         choice(
@@ -29,6 +31,7 @@ pipeline {
     stages {
 
         stage('📦 Checkout Code') {
+            agent any
             steps {
                 echo "🔄 Pulling latest code..."
                 checkout scm
@@ -37,9 +40,11 @@ pipeline {
 
         stage('🧪 Parallel Code Quality Checks') {
             when { expression { !params.DESTROY_INFRA } }
+            agent any
             parallel {
 
                 stage('🧹 terraform fmt') {
+                    agent any
                     steps {
                         dir("${TF_DIR}") {
                             sh "terraform fmt -recursive -check || true"
@@ -48,6 +53,7 @@ pipeline {
                 }
 
                 stage('🔍 tfsec') {
+                    agent any
                     steps {
                         dir("${TF_DIR}") {
                             sh "tfsec . || true"
@@ -56,6 +62,7 @@ pipeline {
                 }
 
                 stage('🧰 tflint') {
+                    agent any
                     steps {
                         dir("${TF_DIR}") {
                             sh "tflint || true"
@@ -66,6 +73,7 @@ pipeline {
         }
 
         stage('🚀 Terraform Init') {
+            agent any
             steps {
                 dir("${TF_DIR}") {
                     echo "🧩 Initializing backend for ${ENV}..."
@@ -80,6 +88,7 @@ pipeline {
 
         stage('🔎 Terraform Validate') {
             when { expression { !params.DESTROY_INFRA } }
+            agent any
             steps {
                 dir("${TF_DIR}") {
                     sh "terraform validate"
@@ -89,6 +98,7 @@ pipeline {
 
         stage('📝 Terraform Plan') {
             when { expression { !params.DESTROY_INFRA } }
+            agent any
             steps {
                 dir("${TF_DIR}") {
                     echo "🛠 Creating Terraform plan..."
@@ -105,6 +115,7 @@ pipeline {
 
         stage('💸 Infracost Cost Estimation') {
             when { expression { !params.DESTROY_INFRA } }
+            agent any
             steps {
                 dir("${TF_DIR}") {
                     echo "💸 Running Infracost cost estimation..."
@@ -138,6 +149,7 @@ pipeline {
                     expression { !params.DESTROY_INFRA }
                 }
             }
+            agent any
             steps {
                 input message: "⚠️ Approve deployment to *PROD*?", ok: "🚀 Deploy"
             }
@@ -150,6 +162,7 @@ pipeline {
                     expression { !params.DESTROY_INFRA }
                 }
             }
+            agent any
             steps {
                 dir("${TF_DIR}") {
                     script {
@@ -179,6 +192,7 @@ pipeline {
 
         stage('💣 Terraform Destroy') {
             when { expression { params.DESTROY_INFRA } }
+            agent any
             steps {
                 dir("${TF_DIR}") {
                     echo "🔥 Destroying ${ENV}..."
@@ -207,6 +221,8 @@ pipeline {
         }
     }
 }
+
+} // END node('master')
 
 
 /*** 🔔 Slack Notification Helper ***/
