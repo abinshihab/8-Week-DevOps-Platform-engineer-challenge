@@ -9,7 +9,7 @@ pipeline {
         )
         booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '⚡ Apply Terraform changes')
         booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy environment')
-        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback if apply fails')
+        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback on failed apply')
     }
 
     environment {
@@ -30,8 +30,8 @@ pipeline {
 
         stage('📦 Checkout Code') {
             steps {
-                echo "🔄 Pulling latest code..."
                 checkout scm
+                echo "🔄 Code checked out successfully!"
             }
         }
 
@@ -68,7 +68,7 @@ pipeline {
         stage('🚀 Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    echo "🧩 Initializing backend for ${ENV}..."
+                    echo "🧩 Initializing backend..."
                     sh """
                         rm -rf .terraform .terraform.lock.hcl
                         terraform init -reconfigure -input=false \
@@ -96,6 +96,7 @@ pipeline {
 
                         terraform show -no-color tfplan > tfplan.txt
                     """
+
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
                 }
             }
@@ -151,20 +152,19 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     script {
-                        echo "⚡ Applying changes..."
-
+                        echo "⚡ Applying plan..."
                         def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
 
                         if (applyStatus != 0) {
-                            echo "❌ Apply failed for ${ENV}"
+                            echo "❌ Apply failed!"
 
                             if (params.ROLLBACK_ON_FAILURE) {
-                                echo "🔁 Running rollback (refresh-only)..."
+                                echo "🔁 Rollback: refresh-only..."
                                 sh """
                                     terraform apply -refresh-only -auto-approve \
                                         -var-file=${TF_VAR_FILE} || true
                                 """
-                                notifySlack("⚠️ Rollback executed for *${ENV}* due to failed apply")
+                                notifySlack("⚠️ Rollback executed for *${ENV}* after failed apply")
                             }
 
                             error("Apply failed")
@@ -178,7 +178,7 @@ pipeline {
             when { expression { params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "🔥 Destroying environment: ${ENV}"
+                    echo "🔥 Destroying environment..."
                     sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
                 }
             }
@@ -188,22 +188,20 @@ pipeline {
     post {
 
         success {
-            node {
+            script {
                 notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*")
             }
         }
 
         failure {
-            node {
+            script {
                 notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*")
             }
         }
 
         always {
-            node {
-                echo "🧹 Cleaning workspace..."
-                cleanWs()
-            }
+            echo "🧹 Cleaning workspace..."
+            cleanWs()
         }
     }
 }
@@ -214,7 +212,7 @@ def notifySlack(String message) {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_URL')]) {
             sh """
                 curl -X POST -H 'Content-Type: application/json' \
-                --data '{\"text\": \"${message}\"}' "${SLACK_URL}"
+                --data '{"text": "${message}"}' "${SLACK_URL}"
             """
         }
     } catch (e) {
