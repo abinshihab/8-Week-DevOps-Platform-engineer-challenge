@@ -5,11 +5,11 @@ pipeline {
         choice(
             name: 'TARGET_ENV',
             choices: ['dev', 'stage', 'prod'],
-            description: '🌍 Choose deployment environment'
+            description: '🌍 Select deployment environment'
         )
         booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '⚡ Apply Terraform changes')
         booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy environment')
-        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback on failed apply')
+        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback if apply fails')
     }
 
     environment {
@@ -17,6 +17,7 @@ pipeline {
         TF_DIR      = "${WORKSPACE}/Week6"
         TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
         TF_BACKEND  = "envs/${ENV}/backend.conf"
+
         INFRACOST_API_KEY = credentials('infracost_api_key')
     }
 
@@ -29,14 +30,15 @@ pipeline {
 
         stage('📦 Checkout Code') {
             steps {
-                echo '🔄 Pulling latest code...'
+                echo "🔄 Pulling latest code..."
                 checkout scm
             }
         }
 
-        stage('🧪 Code Quality Checks (Parallel)') {
+        stage('🧪 Parallel Code Quality Checks') {
             when { expression { !params.DESTROY_INFRA } }
             parallel {
+
                 stage('🧹 terraform fmt') {
                     steps {
                         dir("${TF_DIR}") {
@@ -44,6 +46,7 @@ pipeline {
                         }
                     }
                 }
+
                 stage('🔍 tfsec') {
                     steps {
                         dir("${TF_DIR}") {
@@ -51,6 +54,7 @@ pipeline {
                         }
                     }
                 }
+
                 stage('🧰 tflint') {
                     steps {
                         dir("${TF_DIR}") {
@@ -64,7 +68,7 @@ pipeline {
         stage('🚀 Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    echo "🧩 Terraform init for ${ENV}"
+                    echo "🧩 Initializing backend for ${ENV}..."
                     sh """
                         rm -rf .terraform .terraform.lock.hcl
                         terraform init -reconfigure -input=false \
@@ -77,9 +81,7 @@ pipeline {
         stage('🔎 Terraform Validate') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
-                dir("${TF_DIR}") {
-                    sh "terraform validate"
-                }
+                dir("${TF_DIR}") { sh "terraform validate" }
             }
         }
 
@@ -87,7 +89,6 @@ pipeline {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "🛠 Creating plan..."
                     sh """
                         terraform plan -input=false \
                             -var-file=${TF_VAR_FILE} \
@@ -100,31 +101,34 @@ pipeline {
             }
         }
 
-        stage('💸 Infracost') {
+        stage('💸 Infracost Cost Estimation') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
+                    echo "💸 Running Infracost..."
+
                     sh """
                         infracost breakdown \
-                            --path tfplan \
-                            --format json \
-                            --out-file infracost.json
+                          --path tfplan \
+                          --format json \
+                          --out-file infracost.json
 
                         infracost output \
-                            --format table \
-                            --path infracost.json > infracost.txt
+                          --format table \
+                          --path infracost.json > infracost.txt
                     """
+
                     archiveArtifacts artifacts: 'infracost.txt', fingerprint: true
 
                     script {
-                        def costMsg = readFile("${TF_DIR}/infracost.txt")
-                        notifySlack("💰 *Infracost Report for ${ENV}:*\\n```\\n${costMsg}\\n```")
+                        def msg = readFile("${TF_DIR}/infracost.txt")
+                        notifySlack("💰 *Infracost Report for ${ENV}:*\n```${msg}```")
                     }
                 }
             }
         }
 
-        stage('🛑 Manual Approval (PROD)') {
+        stage('🛑 Approval (PROD Only)') {
             when {
                 allOf {
                     expression { params.TARGET_ENV == 'prod' }
@@ -133,11 +137,11 @@ pipeline {
                 }
             }
             steps {
-                input message: '⚠️ Approve PROD deployment?', ok: '🚀 Deploy'
+                input message: "⚠️ Approve deployment to *PROD*?", ok: "🚀 Deploy"
             }
         }
 
-        stage('⚡ Apply (with rollback)') {
+        stage('⚡ Terraform Apply (with rollback)') {
             when {
                 allOf {
                     expression { params.APPLY_INFRA }
@@ -147,10 +151,12 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     script {
-                        def result = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
+                        echo "⚡ Applying changes..."
 
-                        if (result != 0) {
-                            echo "❌ Apply failed."
+                        def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
+
+                        if (applyStatus != 0) {
+                            echo "❌ Apply failed for ${ENV}"
 
                             if (params.ROLLBACK_ON_FAILURE) {
                                 echo "🔁 Running rollback (refresh-only)..."
@@ -158,21 +164,21 @@ pipeline {
                                     terraform apply -refresh-only -auto-approve \
                                         -var-file=${TF_VAR_FILE} || true
                                 """
-                                notifySlack("⚠️ Rollback executed for ${ENV}")
+                                notifySlack("⚠️ Rollback executed for *${ENV}* due to failed apply")
                             }
 
-                            error("Terraform apply failed")
+                            error("Apply failed")
                         }
                     }
                 }
             }
         }
 
-        stage('💣 Destroy Environment') {
+        stage('💣 Terraform Destroy') {
             when { expression { params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "🔥 Destroying ${ENV} environment..."
+                    echo "🔥 Destroying environment: ${ENV}"
                     sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
                 }
             }
@@ -180,25 +186,35 @@ pipeline {
     }
 
     post {
+
         success {
-            script { notifySlack("✅ Terraform pipeline SUCCESS for ${env.ENV}") }
+            node {
+                notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*")
+            }
         }
+
         failure {
-            script { notifySlack("❌ Terraform pipeline FAILED for ${env.ENV}") }
+            node {
+                notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*")
+            }
         }
+
         always {
-            echo '🧹 Cleaning workspace...'
-            cleanWs()    // now safe (global agent keeps workspace alive)
+            node {
+                echo "🧹 Cleaning workspace..."
+                cleanWs()
+            }
         }
     }
 }
 
+/*** 🔔 Slack Notification Helper ***/
 def notifySlack(String message) {
     try {
         withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_URL')]) {
             sh """
                 curl -X POST -H 'Content-Type: application/json' \
-                    --data '{\"text\": \"${message}\"}' "${SLACK_URL}"
+                --data '{\"text\": \"${message}\"}' "${SLACK_URL}"
             """
         }
     } catch (e) {
