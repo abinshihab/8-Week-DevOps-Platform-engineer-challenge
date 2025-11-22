@@ -1,7 +1,5 @@
-node('master') {   // 🔥 Ensures workspace exists for ALL steps including post{}
-
 pipeline {
-    agent none     // 🔥 Prevents Jenkins from leaving the node early
+    agent any
 
     parameters {
         choice(
@@ -31,7 +29,6 @@ pipeline {
     stages {
 
         stage('📦 Checkout Code') {
-            agent any
             steps {
                 echo "🔄 Pulling latest code..."
                 checkout scm
@@ -40,11 +37,9 @@ pipeline {
 
         stage('🧪 Parallel Code Quality Checks') {
             when { expression { !params.DESTROY_INFRA } }
-            agent any
             parallel {
 
                 stage('🧹 terraform fmt') {
-                    agent any
                     steps {
                         dir("${TF_DIR}") {
                             sh "terraform fmt -recursive -check || true"
@@ -53,7 +48,6 @@ pipeline {
                 }
 
                 stage('🔍 tfsec') {
-                    agent any
                     steps {
                         dir("${TF_DIR}") {
                             sh "tfsec . || true"
@@ -62,7 +56,6 @@ pipeline {
                 }
 
                 stage('🧰 tflint') {
-                    agent any
                     steps {
                         dir("${TF_DIR}") {
                             sh "tflint || true"
@@ -73,7 +66,6 @@ pipeline {
         }
 
         stage('🚀 Terraform Init') {
-            agent any
             steps {
                 dir("${TF_DIR}") {
                     echo "🧩 Initializing backend for ${ENV}..."
@@ -88,7 +80,6 @@ pipeline {
 
         stage('🔎 Terraform Validate') {
             when { expression { !params.DESTROY_INFRA } }
-            agent any
             steps {
                 dir("${TF_DIR}") {
                     sh "terraform validate"
@@ -98,7 +89,6 @@ pipeline {
 
         stage('📝 Terraform Plan') {
             when { expression { !params.DESTROY_INFRA } }
-            agent any
             steps {
                 dir("${TF_DIR}") {
                     echo "🛠 Creating Terraform plan..."
@@ -115,11 +105,9 @@ pipeline {
 
         stage('💸 Infracost Cost Estimation') {
             when { expression { !params.DESTROY_INFRA } }
-            agent any
             steps {
                 dir("${TF_DIR}") {
-                    echo "💸 Running Infracost cost estimation..."
-
+                    echo "💸 Running Infracost..."
                     sh """
                     infracost breakdown \
                       --path tfplan \
@@ -130,7 +118,6 @@ pipeline {
                       --format table \
                       --path infracost.json > infracost.txt
                     """
-
                     archiveArtifacts artifacts: 'infracost.txt', fingerprint: true
 
                     script {
@@ -149,7 +136,6 @@ pipeline {
                     expression { !params.DESTROY_INFRA }
                 }
             }
-            agent any
             steps {
                 input message: "⚠️ Approve deployment to *PROD*?", ok: "🚀 Deploy"
             }
@@ -162,7 +148,6 @@ pipeline {
                     expression { !params.DESTROY_INFRA }
                 }
             }
-            agent any
             steps {
                 dir("${TF_DIR}") {
                     script {
@@ -174,12 +159,10 @@ pipeline {
 
                             if (params.ROLLBACK_ON_FAILURE) {
                                 echo "🔁 Rollback: refresh-only apply..."
-
                                 sh """
                                 terraform apply -refresh-only -auto-approve \
                                     -var-file=${TF_VAR_FILE} || true
                                 """
-
                                 notifySlack("⚠️ Rollback executed for *${ENV}* after failed apply")
                             }
 
@@ -192,7 +175,6 @@ pipeline {
 
         stage('💣 Terraform Destroy') {
             when { expression { params.DESTROY_INFRA } }
-            agent any
             steps {
                 dir("${TF_DIR}") {
                     echo "🔥 Destroying ${ENV}..."
@@ -204,26 +186,17 @@ pipeline {
 
     post {
         success {
-            script {
-                notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*")
-            }
+            script { notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*") }
         }
         failure {
-            script {
-                notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*")
-            }
+            script { notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*") }
         }
         always {
-            script {
-                echo "🧹 Cleaning workspace..."
-                cleanWs()
-            }
+            echo "🧹 Cleaning workspace..."
+            cleanWs()
         }
     }
 }
-
-} // END node('master')
-
 
 /*** 🔔 Slack Notification Helper ***/
 def notifySlack(String message) {
