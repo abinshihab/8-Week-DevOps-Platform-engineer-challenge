@@ -107,7 +107,7 @@ pipeline {
             when { expression { !params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "💸 Running Infracost..."
+                    echo "💸 Running Infracost cost check..."
                     sh """
                     infracost breakdown \
                       --path tfplan \
@@ -151,7 +151,7 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     script {
-                        echo "⚡ Applying changes..."
+                        echo "⚡ Applying Terraform..."
                         def applyStatus = sh(script: "terraform apply -input=false tfplan", returnStatus: true)
 
                         if (applyStatus != 0) {
@@ -163,10 +163,10 @@ pipeline {
                                 terraform apply -refresh-only -auto-approve \
                                     -var-file=${TF_VAR_FILE} || true
                                 """
-                                notifySlack("⚠️ *Rollback executed* for ${ENV} after failed apply")
+                                notifySlack("⚠️ Rollback executed for *${ENV}* after failed apply")
                             }
 
-                            error("Apply failed")
+                            error("Terraform apply failed")
                         }
                     }
                 }
@@ -177,7 +177,7 @@ pipeline {
             when { expression { params.DESTROY_INFRA } }
             steps {
                 dir("${TF_DIR}") {
-                    echo "🔥 Destroying ${ENV}..."
+                    echo "🔥 Destroying infrastructure for ${ENV}..."
                     sh "terraform destroy -auto-approve -var-file=${TF_VAR_FILE}"
                 }
             }
@@ -187,19 +187,19 @@ pipeline {
     post {
 
         success {
-            node {
+            node('master') {
                 script { notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*") }
             }
         }
 
         failure {
-            node {
+            node('master') {
                 script { notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*") }
             }
         }
 
         always {
-            node {
+            node('master') {
                 echo "🧹 Cleaning workspace..."
                 cleanWs()
             }
