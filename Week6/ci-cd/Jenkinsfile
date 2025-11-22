@@ -18,7 +18,6 @@ pipeline {
         TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
         TF_BACKEND  = "envs/${ENV}/backend.conf"
 
-        // Infracost
         INFRACOST_API_KEY = credentials('infracost_api_key')
     }
 
@@ -39,7 +38,7 @@ pipeline {
         stage('🧪 Parallel Code Quality Checks') {
             when { expression { !params.DESTROY_INFRA } }
             parallel {
-                
+
                 stage('🧹 terraform fmt') {
                     steps {
                         dir("${TF_DIR}") {
@@ -191,28 +190,36 @@ pipeline {
 
     post {
         success {
-            notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*")
+            node {
+                notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*")
+            }
         }
         failure {
-            notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*")
+            node {
+                notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*")
+            }
         }
         always {
-            echo "🧹 Cleaning workspace..."
-            script { cleanWs() }
+            node {
+                echo "🧹 Cleaning workspace..."
+                cleanWs()
+            }
         }
     }
 }
 
 /*** 🔔 Slack Notification Helper ***/
 def notifySlack(String message) {
-    try {
-        withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_URL')]) {
-            sh """
-            curl -X POST -H 'Content-Type: application/json' \
-                --data '{\"text\": \"${message}\"}' "\${SLACK_URL}"
-            """
+    node {  
+        try {
+            withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_URL')]) {
+                sh """
+                curl -X POST -H 'Content-Type: application/json' \
+                    --data '{\"text\": \"${message}\"}' "\${SLACK_URL}"
+                """
+            }
+        } catch (e) {
+            echo "Slack notification failed: ${e}"
         }
-    } catch (e) {
-        echo "Slack notification failed: ${e}"
     }
 }
