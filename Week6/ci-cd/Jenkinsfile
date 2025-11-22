@@ -190,17 +190,17 @@ pipeline {
 
     post {
         success {
-            node {
+            script {
                 notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*")
             }
         }
         failure {
-            node {
+            script {
                 notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*")
             }
         }
         always {
-            node {
+            script {
                 echo "🧹 Cleaning workspace..."
                 cleanWs()
             }
@@ -208,18 +208,17 @@ pipeline {
     }
 }
 
+
 /*** 🔔 Slack Notification Helper ***/
 def notifySlack(String message) {
-    node {  
-        try {
-            withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_URL')]) {
-                sh """
-                curl -X POST -H 'Content-Type: application/json' \
-                    --data '{\"text\": \"${message}\"}' "\${SLACK_URL}"
-                """
-            }
-        } catch (e) {
-            echo "Slack notification failed: ${e}"
+    try {
+        withCredentials([string(credentialsId: 'slack_webhook_url', variable: 'SLACK_URL')]) {
+            sh """
+            curl -X POST -H 'Content-Type: application/json' \
+                --data '{\"text\": \"${message}\"}' "${SLACK_URL}"
+            """
         }
+    } catch (e) {
+        echo "Slack notification failed: ${e}"
     }
 }
