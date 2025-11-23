@@ -242,3 +242,9 @@ locals {
 # --- Use parameters in resources ---
 #############################################
 
+############################################
+# Required for ALB ARN suffix output
+############################################
+data "aws_caller_identity" "current" {}
+
+
