@@ -36,13 +36,19 @@ pipeline {
             }
         }
 
-        stage('🧪 Debug Workspace') {
+        stage('🧪 Debug Workspace (Full Tree)') {
             steps {
-                echo "🔍 Debugging project structure..."
+                echo "🔍 Checking full workspace structure..."
                 sh """
-                echo '📁 Current directory:' && pwd
-                echo '📄 .tfvars files:' && find envs -type f -name "*.tfvars"
-                echo '🗂 Week7/monitoring:' && ls -R Week7/monitoring || true
+                echo '📁 Current working directory:' && pwd
+                echo '🌲 FULL WORKSPACE TREE:' 
+                ls -R .
+
+                echo '📄 Searching for tfvars in full workspace:'
+                find . -type f -name '*.tfvars' || true
+
+                echo '📂 Contents of Week7/monitoring:' 
+                ls -R Week7/monitoring || true
                 """
             }
         }
