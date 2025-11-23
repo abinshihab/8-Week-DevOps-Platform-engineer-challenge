@@ -51,7 +51,7 @@ output "alb_arn_suffix" {
   description = "ARN suffix of the ALB (required by CloudWatch metrics)"
   value = replace(
     module.alb.alb_arn,
-    "arn:aws:elasticloadbalancing:${var.aws.region}:${data.aws_caller_identity.current.account_id}:loadbalancer/",
+    "arn:aws:elasticloadbalancing:${var.aws_region}:${data.aws_caller_identity.current.account_id}:loadbalancer/",
     ""
   )
 }
@@ -61,7 +61,7 @@ output "alb_target_group_arn_suffix" {
   description = "ARN suffix of ALB Target Group (required by CloudWatch metrics)"
   value = replace(
     module.alb.alb_target_group_arn,
-    "arn:aws:elasticloadbalancing:${var.aws.region}:${data.aws_caller_identity.current.account_id}:targetgroup/",
+    "arn:aws:elasticloadbalancing:${var.aws_region}:${data.aws_caller_identity.current.account_id}:targetgroup/",
     ""
   )
 }
