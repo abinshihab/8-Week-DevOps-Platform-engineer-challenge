@@ -48,7 +48,7 @@ output "alb_target_group_arn" {
 
 # ALB ARN suffix required for CloudWatch metrics
 output "alb_arn_suffix" {
-  description = "ARN suffix of the ALB (required by CloudWatch metrics)"
+  description = "ALB ARN suffix, required by CloudWatch metrics"
   value = replace(
     module.alb.alb_arn,
     "arn:aws:elasticloadbalancing:${var.aws_region}:${data.aws_caller_identity.current.account_id}:loadbalancer/",
@@ -58,9 +58,9 @@ output "alb_arn_suffix" {
 
 # ALB Target Group ARN suffix (for Target Group health metrics)
 output "alb_target_group_arn_suffix" {
-  description = "ARN suffix of ALB Target Group (required by CloudWatch metrics)"
+  description = "Target Group ARN suffix, required by CloudWatch metrics"
   value = replace(
-    module.alb.alb_target_group_arn,
+    module.alb.target_group_arn,
     "arn:aws:elasticloadbalancing:${var.aws_region}:${data.aws_caller_identity.current.account_id}:targetgroup/",
     ""
   )
@@ -70,26 +70,24 @@ output "alb_target_group_arn_suffix" {
 # Compute (Hybrid)     #
 ########################
 
-# If ASG is enabled, export ASG name
 output "asg_name" {
-  description = "Name of the Auto Scaling Group (Week7 uses this for ASG CPU alarms)"
+  description = "Auto Scaling Group Name (Week7 uses this for ASG CPU alarms)"
   value       = try(module.compute.asg_names[0], null)
 }
 
-# If EC2 single instance mode is enabled, export instance ID
 output "instance_id" {
-  description = "EC2 Instance ID (if ASG disabled, Week7 uses this for EC2 CPU alarms)"
+  description = "Single EC2 instance ID (if ASG disabled)"
   value       = try(module.compute.instance_ids[0], null)
 }
 
-# Original compute outputs kept for compatibility
+# Original outputs for compatibility
 output "asg_names" {
-  description = "List of ASG names (original output)"
+  description = "List of all ASG names"
   value       = try(module.compute.asg_names, null)
 }
 
 output "instance_ids" {
-  description = "List of instance IDs (original output)"
+  description = "List of EC2 instance IDs"
   value       = try(module.compute.instance_ids, null)
 }
 
