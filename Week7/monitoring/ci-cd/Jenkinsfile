@@ -64,6 +64,16 @@ pipeline {
             }
         }
 
+        stage('⬆️ Upgrade Providers') {
+            steps {
+                echo "⬆️ Upgrading Terraform AWS provider for ${ENV}..."
+                sh """
+                export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR}"
+                terraform -chdir="${TF_DIR}" init -upgrade || true
+                """
+            }
+        }
+
         stage('🚀 Terraform Init') {
             steps {
                 echo "🚀 Initializing Terraform backend for environment: ${ENV}"
@@ -118,9 +128,10 @@ pipeline {
             steps {
                 echo "⚡ Applying Terraform for ${ENV}..."
                 script {
-                    def status = sh(script: """
-                        terraform -chdir='${TF_DIR}' apply -input=false tfplan
-                    """, returnStatus: true)
+                    def status = sh(
+                        script: "terraform -chdir='${TF_DIR}' apply -input=false tfplan",
+                        returnStatus: true
+                    )
 
                     if (status != 0) {
                         echo "❌ Terraform apply failed for ${ENV}"
