@@ -96,6 +96,7 @@ pipeline {
                     terraform plan -input=false \
                         -var-file=${TF_VAR_FILE} \
                         -out=tfplan
+
                     terraform show -no-color tfplan > tfplan.txt
                     """
                     archiveArtifacts artifacts: 'tfplan.txt', fingerprint: true
@@ -187,22 +188,22 @@ pipeline {
     post {
 
         success {
-            node('master') {
-                script { notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*") }
+            script {
+                notifySlack("✅ Terraform pipeline SUCCESS for *${env.ENV}*")
             }
         }
 
         failure {
-            node('master') {
-                script { notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*") }
+            script {
+                notifySlack("❌ Terraform pipeline FAILED for *${env.ENV}*")
             }
         }
 
         always {
-            node('master') {
+            script {
                 echo "🧹 Cleaning workspace..."
-                cleanWs()
             }
+            cleanWs()
         }
     }
 }
