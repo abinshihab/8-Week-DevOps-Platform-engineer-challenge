@@ -77,14 +77,15 @@ module "cloudwatch_alerts" {
 # CloudWatch Dashboard
 ##############################################
 
+
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${var.environment}-monitoring"
 
   dashboard_body = templatefile("${path.module}/dashboards/main-dashboard.json", {
     environment                 = var.environment
-    instance_id                 = local.instance_id
-    asg_name                    = local.asg_name
-    alb_arn_suffix              = local.alb_arn_suffix
-    alb_target_group_arn_suffix = local.alb_target_group_arn_suffix
+    instance_id                 = coalesce(local.instance_id, "")
+    asg_name                    = coalesce(local.asg_name, "")
+    alb_arn_suffix              = coalesce(local.alb_arn_suffix, "")
+    alb_target_group_arn_suffix = coalesce(local.alb_target_group_arn_suffix, "")
   })
 }
