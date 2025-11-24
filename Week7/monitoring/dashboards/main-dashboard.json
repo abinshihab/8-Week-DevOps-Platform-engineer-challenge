@@ -7,10 +7,9 @@
       "width": 24,
       "height": 2,
       "properties": {
-        "markdown": "# 🚀 ${environment} Monitoring Dashboard\n### Real-time visibility · Modern layout · AI-ready metrics"
+        "markdown": "# 🚀 ${environment} Monitoring Dashboard\n### ASG + ALB · No EC2 dependencies · Production-ready"
       }
     },
-
 
     {
       "type": "metric",
@@ -40,7 +39,7 @@
       "width": 12,
       "height": 6,
       "properties": {
-        "title": "📈 ALB Request Count per Target Group",
+        "title": "📈 ALB Request Count (Per Target Group)",
         "region": "us-east-1",
         "view": "timeSeries",
         "legend": { "position": "bottom" },
@@ -50,8 +49,6 @@
       }
     },
 
-
-
     {
       "type": "metric",
       "x": 0,
@@ -59,7 +56,7 @@
       "width": 12,
       "height": 6,
       "properties": {
-        "title": "❗ ALB HTTP Errors (4xx/5xx)",
+        "title": "❗ ALB HTTP Errors (4xx / 5xx)",
         "region": "us-east-1",
         "view": "timeSeries",
         "legend": { "position": "bottom" },
@@ -70,8 +67,6 @@
       }
     },
 
-
-
     {
       "type": "metric",
       "x": 12,
@@ -79,12 +74,12 @@
       "width": 12,
       "height": 6,
       "properties": {
-        "title": "🖥️ EC2 CPU Utilization",
+        "title": "🧠 ASG CPU Utilization (Across All Instances)",
         "region": "us-east-1",
         "view": "timeSeries",
         "legend": { "position": "bottom" },
         "metrics": [
-          [ "AWS/EC2", "CPUUtilization", "InstanceId", "${instance_id}", { "stat": "Average", "color": "#00BFFF" } ]
+          [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${asg_name}", { "stat": "Average", "color": "#00BFFF" } ]
         ]
       }
     },
@@ -96,47 +91,12 @@
       "width": 12,
       "height": 6,
       "properties": {
-        "title": "📊 EC2 Memory Usage",
+        "title": "🔌 ASG Network Traffic (In/Out)",
         "region": "us-east-1",
         "view": "timeSeries",
         "legend": { "position": "bottom" },
         "metrics": [
-          [ "CWAgent", "mem_used_percent", "InstanceId", "${instance_id}", { "color": "#4CAF50" } ]
-        ]
-      }
-    },
-
-    {
-      "type": "metric",
-      "x": 12,
-      "y": 14,
-      "width": 12,
-      "height": 6,
-      "properties": {
-        "title": "💽 EC2 Disk Usage %",
-        "region": "us-east-1",
-        "view": "timeSeries",
-        "legend": { "position": "bottom" },
-        "metrics": [
-          [ "CWAgent", "disk_used_percent", "InstanceId", "${instance_id}", "path", "/", { "color": "#B565A7" } ]
-        ]
-      }
-    },
-
-
-    {
-      "type": "metric",
-      "x": 0,
-      "y": 20,
-      "width": 12,
-      "height": 6,
-      "properties": {
-        "title": "🔌 EC2 Network Traffic (In/Out)",
-        "region": "us-east-1",
-        "view": "timeSeries",
-        "legend": { "position": "bottom" },
-        "metrics": [
-          [ "AWS/EC2", "NetworkIn", "InstanceId", "${instance_id}", { "color": "#008FFB" } ],
+          [ "AWS/EC2", "NetworkIn", "AutoScalingGroupName", "${asg_name}", { "color": "#008FFB" } ],
           [ ".", "NetworkOut", ".", ".", { "color": "#FF4560" } ]
         ]
       }
@@ -145,7 +105,7 @@
     {
       "type": "metric",
       "x": 12,
-      "y": 20,
+      "y": 14,
       "width": 12,
       "height": 6,
       "properties": {
@@ -160,11 +120,10 @@
       }
     },
 
-
     {
       "type": "log",
       "x": 0,
-      "y": 26,
+      "y": 20,
       "width": 24,
       "height": 8,
       "properties": {
@@ -177,7 +136,7 @@
     {
       "type": "log",
       "x": 0,
-      "y": 34,
+      "y": 28,
       "width": 24,
       "height": 8,
       "properties": {
