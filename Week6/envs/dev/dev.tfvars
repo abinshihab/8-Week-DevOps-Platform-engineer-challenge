@@ -67,4 +67,3 @@ db_username       = "admin"
 alb_arn_suffix = "placeholder-alb"
 project        = "my-project"
 
-enable_scaling = false
