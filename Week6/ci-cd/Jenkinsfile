@@ -15,13 +15,17 @@ pipeline {
     environment {
         ENV         = "${params.TARGET_ENV}"
         TF_DIR      = "${WORKSPACE}/Week6"
+
+        // 🔥 ENV-specific tfvars
         TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
 
-        // Backend files must exist inside TF_DIR
-        TF_BACKEND  = "backend-${ENV}.hcl"
+        // 🔥 Correct backend file location
+        TF_BACKEND  = "envs/${ENV}/backend-${ENV}.hcl"
 
         INFRACOST_API_KEY = credentials('infracost_api_key')
-        TF_PLUGIN_CACHE_DIR = "/var/lib/jenkins/.terraform.d/plugin-cache"
+
+        // 🔥 Correct plugin cache path for macOS Jenkins
+        TF_PLUGIN_CACHE_DIR = "/Users/administrator/.jenkins/.terraform.d/plugin-cache"
     }
 
     options {
@@ -74,7 +78,7 @@ pipeline {
 
                     echo "🧩 Preparing backend for ${ENV}..."
 
-                    // FIX: Create plugin-cache directory safely
+                    // 🔥 Ensure plugin cache directory exists
                     sh """
                     mkdir -p ${TF_PLUGIN_CACHE_DIR}
                     export TF_PLUGIN_CACHE_DIR=${TF_PLUGIN_CACHE_DIR}
