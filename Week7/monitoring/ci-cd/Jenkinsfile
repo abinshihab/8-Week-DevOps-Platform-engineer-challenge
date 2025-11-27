@@ -15,7 +15,7 @@ pipeline {
     environment {
         ENV                 = "${params.TARGET_ENV}"
         TF_DIR              = "${WORKSPACE}/Week7/monitoring"
-        TF_BACKEND          = "backend-${ENV}.conf"
+        TF_BACKEND          = "backend-${ENV}.hcl"
         TF_VAR_FILE         = "envs/${ENV}/${ENV}.tfvars"
         AWS_REGION          = "us-east-1"
         TF_PLUGIN_CACHE_DIR = "${env.JENKINS_HOME}/.terraform.d/plugin-cache"
