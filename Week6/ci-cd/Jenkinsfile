@@ -16,9 +16,12 @@ pipeline {
         ENV         = "${params.TARGET_ENV}"
         TF_DIR      = "${WORKSPACE}/Week6"
         TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
-        TF_BACKEND  = "backend-${ENV}.conf"
+
+        // Backend files must exist inside TF_DIR
+        TF_BACKEND  = "backend-${ENV}.hcl"
 
         INFRACOST_API_KEY = credentials('infracost_api_key')
+        TF_PLUGIN_CACHE_DIR = "/var/lib/jenkins/.terraform.d/plugin-cache"
     }
 
     options {
@@ -68,11 +71,23 @@ pipeline {
         stage('🚀 Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    echo "🧩 Initializing backend for ${ENV}..."
+
+                    echo "🧩 Preparing backend for ${ENV}..."
+
+                    // FIX: Create plugin-cache directory safely
+                    sh """
+                    mkdir -p ${TF_PLUGIN_CACHE_DIR}
+                    export TF_PLUGIN_CACHE_DIR=${TF_PLUGIN_CACHE_DIR}
+                    """
+
+                    echo "🧩 Initializing backend for ${ENV} using ${TF_BACKEND}..."
+
                     sh """
                     rm -rf .terraform .terraform.lock.hcl
-                    terraform init -reconfigure -input=false \
-                        -backend-config=${TF_BACKEND}
+
+                    terraform init \
+                        -reconfigure -input=false \
+                        -backend-config="${TF_BACKEND}"
                     """
                 }
             }
@@ -119,6 +134,7 @@ pipeline {
                       --format table \
                       --path infracost.json > infracost.txt
                     """
+
                     archiveArtifacts artifacts: 'infracost.txt', fingerprint: true
 
                     script {
