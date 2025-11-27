@@ -16,7 +16,7 @@ pipeline {
         ENV         = "${params.TARGET_ENV}"
         TF_DIR      = "${WORKSPACE}/Week6"
         TF_VAR_FILE = "envs/${ENV}/${ENV}.tfvars"
-        TF_BACKEND  = "envs/${ENV}/backend.conf"
+        TF_BACKEND  = "backend-${ENV}.conf"
 
         INFRACOST_API_KEY = credentials('infracost_api_key')
     }
