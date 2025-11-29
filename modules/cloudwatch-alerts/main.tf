@@ -119,7 +119,7 @@ resource "aws_autoscaling_policy" "scale_in" {
 
 
 resource "aws_cloudwatch_metric_alarm" "asg_cpu_high" {
-  count                 = local.has_asg ? 1 : 0
+  count                 = 1
   alarm_name            = "${var.environment}-asg-cpu-high"
   alarm_description     = "Alarm when ASG CPU exceeds threshold"
   namespace             = "AWS/EC2"
@@ -135,13 +135,14 @@ resource "aws_cloudwatch_metric_alarm" "asg_cpu_high" {
     AutoScalingGroupName = var.asg_name
   }
 }
+
  ############################################
 # ASG CPU Low Alarm
 ############################################
 
 
 resource "aws_cloudwatch_metric_alarm" "asg_cpu_low" {
-  count                 = local.has_asg ? 1 : 0
+  count                 = 1
   alarm_name            = "${var.environment}-asg-cpu-low"
   alarm_description     = "Alarm when ASG CPU falls below threshold"
   namespace             = "AWS/EC2"
@@ -157,3 +158,4 @@ resource "aws_cloudwatch_metric_alarm" "asg_cpu_low" {
     AutoScalingGroupName = var.asg_name
   }
 }
+
