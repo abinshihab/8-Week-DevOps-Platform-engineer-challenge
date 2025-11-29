@@ -12,7 +12,7 @@ terraform {
     }
   }
 
-  # Backend configuration provided via backend.conf (by Jenkins)
+  # Backend loaded from backend-dev.hcl / backend-stage.hcl / backend-prod.hcl
   backend "s3" {}
 }
 
@@ -21,12 +21,8 @@ provider "aws" {
 }
 
 ############################################
-# Import Week 6 Entire Infrastructure State
-############################################
-# IMPORTANT:
-# Your real state files are located at:
-# state/<env>/terraform.tfstate
-# NOT week6/compute/...  → (this was wrong)
+# Import Week 6 Infrastructure State 
+# (VPC, ALB, ASG, EC2, etc.)
 ############################################
 
 data "terraform_remote_state" "base" {
@@ -34,43 +30,55 @@ data "terraform_remote_state" "base" {
 
   config = {
     bucket = "cc8weeks-terraform-state"
-    key    = "state/${var.environment}/terraform.tfstate"
+    key    = "state/${var.environment}/terraform.tfstate"   # dev/stage/prod
     region = "us-east-1"
   }
 }
 
 ############################################
-# Local Values (Safe Access)
+# Local Values (Safe Access Wrappers)
 ############################################
 
 locals {
-  instance_id                 = try(data.terraform_remote_state.base.outputs.instance_id, null)
-  asg_name                    = try(data.terraform_remote_state.base.outputs.asg_name, null)
+  # Single instance (when compute_mode=ec2)
+  instance_id = try(data.terraform_remote_state.base.outputs.instance_ids[0], null)
+
+  # Auto Scaling Group (Week6 output)
+  asg_name = try(data.terraform_remote_state.base.outputs.asg_name, null)
+
+  # ALB metadata
   alb_arn_suffix              = try(data.terraform_remote_state.base.outputs.alb_arn_suffix, null)
   alb_target_group_arn_suffix = try(data.terraform_remote_state.base.outputs.alb_target_group_arn_suffix, null)
 }
 
 ############################################
-# Monitoring Stack (CloudWatch Alerts)
+# CloudWatch Alerts Module (Week7 Monitoring)
 ############################################
 
 module "cloudwatch_alerts" {
   source = "../../modules/cloudwatch-alerts"
 
-  environment                 = var.environment
+  environment = var.environment
 
-  # Pulled automatically from Week 6 state
+  #########################################
+  # Pulling ASG + ALB metadata from Week6
+  #########################################
+  asg_name                    = local.asg_name
   alb_arn_suffix              = local.alb_arn_suffix
   alb_target_group_arn_suffix = local.alb_target_group_arn_suffix
-  asg_name                    = local.asg_name
 
-  # Alert Thresholds
-  asg_cpu_threshold     = var.asg_cpu_threshold
-  alb_request_threshold = var.alb_request_threshold
-  alerts_email          = var.alerts_email
+  #########################################
+  # Threshold Controls (tfvars per env)
+  #########################################
+  asg_cpu_high_threshold  = var.asg_cpu_high_threshold
+  asg_cpu_low_threshold   = var.asg_cpu_low_threshold
+  alb_request_threshold   = var.alb_request_threshold
+  alerts_email            = var.alerts_email
 
-  # Optional ASG scaling from Week7
-  enable_asg_scaling = var.enable_scaling
+  #########################################
+  # Optional scaling (Week8)
+  #########################################
+  enable_asg_scaling = var.enable_asg_scaling
 }
 
 ##############################################

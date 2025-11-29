@@ -112,3 +112,48 @@ resource "aws_autoscaling_policy" "scale_in" {
   cooldown               = 60
   autoscaling_group_name = var.asg_name
 }
+
+############################################
+# ASG CPU High Alarm
+############################################
+
+
+resource "aws_cloudwatch_metric_alarm" "asg_cpu_high" {
+  count                 = local.has_asg ? 1 : 0
+  alarm_name            = "${var.environment}-asg-cpu-high"
+  alarm_description     = "Alarm when ASG CPU exceeds threshold"
+  namespace             = "AWS/EC2"
+  metric_name           = "CPUUtilization"
+  comparison_operator   = "GreaterThanThreshold"
+  threshold             = var.asg_cpu_high_threshold
+  period                = 60
+  evaluation_periods    = 2
+  statistic             = "Average"
+  alarm_actions         = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    AutoScalingGroupName = var.asg_name
+  }
+}
+ ############################################
+# ASG CPU Low Alarm
+############################################
+
+
+resource "aws_cloudwatch_metric_alarm" "asg_cpu_low" {
+  count                 = local.has_asg ? 1 : 0
+  alarm_name            = "${var.environment}-asg-cpu-low"
+  alarm_description     = "Alarm when ASG CPU falls below threshold"
+  namespace             = "AWS/EC2"
+  metric_name           = "CPUUtilization"
+  comparison_operator   = "LessThanThreshold"
+  threshold             = var.asg_cpu_low_threshold
+  period                = 300
+  evaluation_periods    = 2
+  statistic             = "Average"
+  alarm_actions         = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    AutoScalingGroupName = var.asg_name
+  }
+}

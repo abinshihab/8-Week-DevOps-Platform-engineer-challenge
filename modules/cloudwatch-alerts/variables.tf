@@ -50,3 +50,14 @@ variable "enable_asg_scaling" {
   type        = bool
   default     = false
 }
+variable "asg_cpu_high_threshold" {
+  type        = number
+  default     = 80
+  description = "CPU threshold for ASG scale-out alarm"
+}
+
+variable "asg_cpu_low_threshold" {
+  type        = number
+  default     = 30
+  description = "CPU threshold for ASG scale-in alarm"
+}

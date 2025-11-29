@@ -39,3 +39,4 @@ output "asg_name" {
   description = "Single Auto Scaling Group name (null if EC2 mode)"
   value       = length(try(aws_autoscaling_group.this, [])) > 0 ? aws_autoscaling_group.this[0].name : null
 }
+

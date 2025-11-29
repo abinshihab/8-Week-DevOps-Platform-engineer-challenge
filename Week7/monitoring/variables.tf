@@ -1,5 +1,5 @@
 ############################################
-# Input Variables for Monitoring Layer
+# Core Settings
 ############################################
 
 variable "region" {
@@ -14,17 +14,32 @@ variable "environment" {
 }
 
 ############################################
-# Monitoring Thresholds (Configurable)
+# ASG Integration (from Week6 Remote State)
 ############################################
 
-variable "asg_cpu_threshold" {
-  description = "CPU utilization threshold for ASG alarm"
+variable "asg_name" {
+  description = "Auto Scaling Group name imported from Week6"
+  type        = string
+}
+
+############################################
+# Monitoring Thresholds
+############################################
+
+variable "asg_cpu_high_threshold" {
+  description = "High CPU threshold (triggers scale-out alarm)"
   type        = number
-  default     = 75
+  default     = 80
+}
+
+variable "asg_cpu_low_threshold" {
+  description = "Low CPU threshold (triggers scale-in alarm)"
+  type        = number
+  default     = 30
 }
 
 variable "alb_request_threshold" {
-  description = "Request count threshold for ALB alerts"
+  description = "Threshold for ALB high request count alarm"
   type        = number
   default     = 100
 }
@@ -34,16 +49,16 @@ variable "alb_request_threshold" {
 ############################################
 
 variable "alerts_email" {
-  description = "Email address to receive CloudWatch and SNS alerts"
+  description = "Email address to receive SNS / CloudWatch alerts"
   type        = string
 }
 
 ############################################
-# Scaling Control (Enabled in Week 8)
+# Scaling Control (Used in Week 8)
 ############################################
 
-variable "enable_scaling" {
-  description = "Enable or disable autoscaling policy creation"
+variable "enable_asg_scaling" {
+  description = "Enable ASG scaling policies (scale-in/out)"
   type        = bool
   default     = false
 }
@@ -53,7 +68,7 @@ variable "enable_scaling" {
 ############################################
 
 variable "tags" {
-  description = "Common resource tags applied to monitoring resources"
+  description = "Common resource tags applied to monitoring layer"
   type        = map(string)
   default = {
     Project   = "CloudMind"
