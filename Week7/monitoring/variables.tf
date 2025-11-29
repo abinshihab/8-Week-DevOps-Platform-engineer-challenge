@@ -43,6 +43,12 @@ variable "alb_request_threshold" {
   type        = number
   default     = 100
 }
+variable "asg_name" {
+  description = "Auto Scaling Group name imported from Week6"
+  type        = string
+  default     = ""
+}
+
 
 ############################################
 # Alerts & Notifications
@@ -77,3 +83,5 @@ variable "tags" {
     Layer     = "Monitoring"
   }
 }
+
+

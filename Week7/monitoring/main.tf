@@ -66,6 +66,7 @@ module "cloudwatch_alerts" {
   asg_name                    = local.asg_name
   alb_arn_suffix              = local.alb_arn_suffix
   alb_target_group_arn_suffix = local.alb_target_group_arn_suffix
+  
 
   #########################################
   # Threshold Controls (tfvars per env)
