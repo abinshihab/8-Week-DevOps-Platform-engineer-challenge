@@ -6,7 +6,8 @@ region      = "us-east-1"
 environment = "stage"
 
 # Stage thresholds may be stricter or same as dev
-asg_cpu_threshold     = 70
+asg_cpu_high_threshold = 80
+asg_cpu_low_threshold  = 30
 alb_request_threshold = 80
 
 # Stage notifications can go to your same email or group email

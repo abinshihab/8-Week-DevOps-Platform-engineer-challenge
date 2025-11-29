@@ -6,7 +6,8 @@ region      = "us-east-1"
 environment = "prod"
 
 # Production thresholds are usually tighter
-asg_cpu_threshold     = 65
+asg_cpu_high_threshold = 80
+asg_cpu_low_threshold  = 30
 alb_request_threshold = 60
 
 # Email for urgent production alerts
