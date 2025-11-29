@@ -20,6 +20,7 @@ variable "environment" {
 variable "asg_name" {
   description = "Auto Scaling Group name imported from Week6"
   type        = string
+  default = ""
 }
 
 ############################################
