@@ -7,18 +7,27 @@ pipeline {
             choices: ['dev', 'stage', 'prod'],
             description: '🌍 Select the deployment environment'
         )
-        booleanParam(name: 'APPLY_INFRA',   defaultValue: false, description: '⚡ Apply Terraform changes automatically')
-        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy monitoring stack for selected environment')
-        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback if Terraform apply fails')
+        booleanParam(name: 'APPLY_INFRA', defaultValue: false, description: '⚡ Apply Terraform changes automatically')
+        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: '💣 Destroy monitoring stack')
+        booleanParam(name: 'ROLLBACK_ON_FAILURE', defaultValue: true, description: '🔁 Rollback on failure')
     }
 
     environment {
         ENV                 = "${params.TARGET_ENV}"
+
+        // 🔥 Correct Terraform directory
         TF_DIR              = "${WORKSPACE}/Week7/monitoring"
-        TF_BACKEND          = "backend-${ENV}.hcl"
+
+        // 🔥 Correct backend file path INSIDE Week7/monitoring/envs
+        TF_BACKEND          = "envs/${ENV}/backend-${ENV}.hcl"
+
+        // 🔥 Correct tfvars path INSIDE Week7/monitoring/envs
         TF_VAR_FILE         = "envs/${ENV}/${ENV}.tfvars"
+
         AWS_REGION          = "us-east-1"
-        TF_PLUGIN_CACHE_DIR = "${env.JENKINS_HOME}/.terraform.d/plugin-cache"
+
+        // 🔥 Correct plugin cache path for macOS Jenkins
+        TF_PLUGIN_CACHE_DIR = "/Users/administrator/.jenkins/.terraform.d/plugin-cache"
     }
 
     options {
@@ -38,16 +47,13 @@ pipeline {
 
         stage('🧪 Debug Workspace (Full Tree)') {
             steps {
-                echo "🔍 Checking full workspace structure..."
+                echo "🔍 Showing workspace structure..."
                 sh """
-                echo '📁 Current working directory:' && pwd
-                echo '🌲 FULL WORKSPACE TREE:' 
+                echo '📁 Current directory:' && pwd
+                echo '🌲 WORKSPACE TREE:' 
                 ls -R .
 
-                echo '📄 Searching for tfvars in full workspace:'
-                find . -type f -name '*.tfvars' || true
-
-                echo '📂 Contents of Week7/monitoring:' 
+                echo '🔎 Checking Week7/monitoring:' 
                 ls -R Week7/monitoring || true
                 """
             }
@@ -59,14 +65,14 @@ pipeline {
                 sh """
                 mkdir -p "${TF_PLUGIN_CACHE_DIR}"
                 chmod -R 777 "${TF_PLUGIN_CACHE_DIR}"
-                echo 'Plugin cache ready: ${TF_PLUGIN_CACHE_DIR}'
+                echo 'Plugin cache ready at ${TF_PLUGIN_CACHE_DIR}'
                 """
             }
         }
 
         stage('⬆️ Upgrade Providers') {
             steps {
-                echo "⬆️ Upgrading Terraform AWS provider for ${ENV}..."
+                echo "⬆️ Upgrading providers..."
                 sh """
                 export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR}"
                 terraform -chdir="${TF_DIR}" init -upgrade || true
@@ -79,9 +85,10 @@ pipeline {
                 echo "🚀 Initializing Terraform backend for environment: ${ENV}"
                 sh """
                 export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR}"
+
                 terraform -chdir="${TF_DIR}" init \
                     -reconfigure -input=false \
-                    -backend-config=${TF_BACKEND}
+                    -backend-config="${TF_BACKEND}"
                 """
             }
         }
@@ -89,7 +96,7 @@ pipeline {
         stage('🔎 Terraform Validate') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
-                echo "🔎 Validating Terraform configuration..."
+                echo "🔎 Validating Terraform code..."
                 sh "terraform -chdir='${TF_DIR}' validate"
             }
         }
@@ -97,24 +104,28 @@ pipeline {
         stage('📋 Terraform Plan') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
-                echo "📝 Generating Terraform plan for: ${ENV}"
+                echo "📝 Generating Terraform plan..."
                 sh """
                 terraform -chdir="${TF_DIR}" plan \
                     -input=false \
-                    -var-file=${TF_VAR_FILE} \
+                    -var-file="${TF_VAR_FILE}" \
                     -out=tfplan
 
-                terraform -chdir="${TF_DIR}" show -no-color tfplan \
-                    > ${TF_DIR}/tfplan.txt
+                terraform -chdir="${TF_DIR}" show -no-color tfplan > ${TF_DIR}/tfplan.txt
                 """
                 archiveArtifacts artifacts: "Week7/monitoring/tfplan.txt", fingerprint: true
             }
         }
 
         stage('🛑 PROD Manual Approval') {
-            when { allOf { expression { ENV == 'prod' }; expression { params.APPLY_INFRA } } }
+            when {
+                allOf {
+                    expression { ENV == 'prod' }
+                    expression { params.APPLY_INFRA }
+                }
+            }
             steps {
-                input message: "⚠️ Approve deployment to *PROD Monitoring* environment?"
+                input message: "⚠️ Approve deployment to *PROD Monitoring*?"
             }
         }
 
@@ -134,12 +145,14 @@ pipeline {
                     )
 
                     if (status != 0) {
-                        echo "❌ Terraform apply failed for ${ENV}"
+                        echo "❌ Terraform apply FAILED"
+
                         if (params.ROLLBACK_ON_FAILURE) {
-                            echo "🔁 Rolling back ${ENV} monitoring stack..."
+                            echo "🔁 Rolling back..."
                             sh "terraform -chdir='${TF_DIR}' destroy -auto-approve -var-file='${TF_VAR_FILE}'"
                         }
-                        error("❌ Terraform apply failed with exit code ${status}")
+
+                        error("❌ Apply failed")
                     }
                 }
             }
@@ -148,7 +161,7 @@ pipeline {
         stage('💣 Terraform Destroy') {
             when { expression { params.DESTROY_INFRA } }
             steps {
-                input message: "💣 Confirm destroy of *${ENV}* monitoring environment?"
+                input message: "💣 Confirm destroy of *${ENV}* environment?"
                 echo "🔥 Destroying monitoring stack for ${ENV}..."
                 sh "terraform -chdir='${TF_DIR}' destroy -auto-approve -var-file='${TF_VAR_FILE}'"
             }
@@ -163,7 +176,7 @@ pipeline {
             echo "❌ Monitoring pipeline FAILED for ${ENV}"
         }
         always {
-            echo "📦 Saving plan and cleaning workspace..."
+            echo "📦 Saving files and cleaning workspace..."
             archiveArtifacts artifacts: "Week7/monitoring/tfplan.txt", allowEmptyArchive: true
             cleanWs(deleteDirs: true)
         }
