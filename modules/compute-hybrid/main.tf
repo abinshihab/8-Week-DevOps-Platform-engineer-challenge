@@ -14,7 +14,7 @@ resource "aws_instance" "this" {
   subnet_id              = var.subnet_ids[0]
   vpc_security_group_ids = [var.security_group_id]
 
-  user_data = var.user_data
+  user_data = file("${path.module}/../../week6/scripts/user_data.sh")
 
   tags = merge(var.tags, {
     Name = "${var.environment}-${var.name}-ec2"
