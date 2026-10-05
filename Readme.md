@@ -1,21 +1,24 @@
-# 8-Week DevOps & Cloud Challenge – Terraform + AWS
+# AWS Platform Infrastructure with Terraform
 
 ## Overview
 
-This repository documents my 8-week hands-on DevOps and Cloud/Platform Engineering challenge, focused on building resilient, scalable, and modular AWS infrastructure using Terraform and AWS.
+This project demonstrates a modular, production-oriented AWS infrastructure architecture built with Terraform.
 
-The goal of this project is to demonstrate practical infrastructure engineering skills across Infrastructure as Code, AWS networking, compute, load balancing, monitoring, security, disaster readiness, and cloud operations.
+It focuses on designing reusable, scalable, and maintainable infrastructure across AWS networking, compute, load balancing, monitoring, security, and multi-environment configuration.
 
-By the end of this challenge, the project includes:
+The architecture demonstrates practical infrastructure engineering patterns for reliability, security, observability, automation, and operational maintainability.
 
-- A multi-tier, modular AWS infrastructure
-- Reusable Terraform modules
-- Hybrid compute modules supporting EC2 and Auto Scaling Groups
-- Application Load Balancer (ALB) deployment
+### Key Capabilities
+
+- Multi-AZ AWS networking with public and private subnets
+- Reusable and modular Terraform architecture
+- EC2 and Auto Scaling Group deployment patterns
+- Application Load Balancer (ALB) with health checks
 - CloudWatch monitoring and alarms
-- Security best practices covering IAM, security groups, encryption, and least privilege
+- Bastion host for controlled administrative access
+- Security controls using IAM and Security Groups
 - Environment-based configuration for dev, stage, and prod
-- Portfolio-ready documentation with Terraform modules, outputs, and architecture visuals
+- Infrastructure documentation and architecture diagrams
 
 ---
 
@@ -23,7 +26,7 @@ By the end of this challenge, the project includes:
 
 ![Architecture Diagram](images/Daigram.png)
 
-> Note: The image path currently uses `Daigram.png` to match the existing file name in the repository.
+The architecture represents a multi-tier AWS environment designed with availability, scalability, security, and operational visibility in mind.
 
 ---
 
@@ -42,94 +45,144 @@ Week1/Week2/.../Week8/
 │   ├── bastion_host/
 │   ├── cloudwatch-alerts/
 │   └── security/
-├── envs/                      # Environment-specific tfvars
+├── envs/                      # Environment-specific configuration
 │   ├── dev/
 │   ├── stage/
 │   └── prod/
-├── scripts/                   # User data or setup scripts
+├── scripts/                   # User data and setup scripts
 └── README.md
 ```
 
 ---
 
-## Weekly Goals
+## Infrastructure Components
 
-### Week 1 – Cloud Foundations & Environment Setup
+### Networking
 
-- Install Terraform and AWS CLI
-- Configure AWS credentials
-- Set up the Terraform folder structure
-- Prepare basic state management
-- Deploy a simple VPC with public and private subnets
+The networking layer provides the foundation for the AWS environment.
 
-### Week 2 – Networking & Security
+Key components include:
 
-- Build a Multi-AZ VPC
-- Configure public and private subnets
-- Configure Internet Gateway and NAT Gateways
-- Apply Security Groups and IAM best practices
-- Modularize networking components
+- Multi-AZ VPC architecture
+- Public and private subnets
+- Internet Gateway
+- NAT Gateway
+- Route tables
+- Security Groups
+- Modular Terraform networking components
 
-### Week 3 – Compute & Bastion Host
+### Compute
 
-- Launch EC2 instances
-- Configure user data scripts
-- Set up a Bastion host for secure SSH access
-- Use Terraform outputs for inter-module communication
-- Improve operational access and troubleshooting workflow
+The compute layer supports different deployment patterns depending on workload requirements.
 
-### Week 4 – Application Load Balancer & Basic Monitoring
+Key capabilities include:
 
-- Deploy an Application Load Balancer
-- Attach EC2 instances to the ALB target group
-- Configure health checks
-- Add basic CloudWatch alarms
-- Expand Terraform modules for ALB and monitoring
+- Amazon EC2 instances
+- Launch Templates
+- Auto Scaling Groups
+- EC2 and ASG deployment modes
+- User data automation
+- Terraform outputs for communication between modules
 
-### Week 5 – Hybrid Compute & Disaster Readiness
+The `compute-hybrid` module allows the infrastructure to evolve from standalone EC2 workloads toward scalable Auto Scaling Group deployments.
 
-- Implement a compute-hybrid module with EC2 and Auto Scaling Group modes
-- Use Launch Templates for Auto Scaling Groups
-- Add the ability to switch between EC2 and ASG deployment modes
-- Perform basic disaster-readiness testing
-- Validate scaling policies using CloudWatch alarms
+### Load Balancing
 
-### Week 6 – Advanced Monitoring & Observability
+Application traffic is distributed using an Application Load Balancer.
 
-- Integrate CloudWatch Logs
-- Create CloudWatch dashboards
-- Monitor CPU, memory, network, and ALB metrics
-- Improve visibility into infrastructure health
-- Explore optional Grafana dashboard integration
+The implementation includes:
 
-### Week 7 – Security & IAM
+- Application Load Balancer
+- Target Groups
+- EC2/ASG integration
+- Health checks
+- Listener configuration
 
-- Apply least-privilege IAM roles
-- Harden access using Network ACLs and Security Groups
-- Review encryption and secure configuration practices
-- Configure Terraform state locking
-- Review secrets management practices
+### Monitoring & Observability
 
-### Week 8 – Final Project & Portfolio Integration
+AWS CloudWatch is used to provide infrastructure-level operational visibility.
 
-- Combine all modules into a production-style infrastructure stack
-- Document architecture, modules, variables, and outputs
-- Review security, monitoring, and reliability design
-- Push final version to GitHub with visuals and documentation
-- Prepare resume-ready engineering bullets from the project
+The project includes monitoring and alerting components for infrastructure health and performance.
+
+### Security
+
+Security is considered throughout the infrastructure design.
+
+The architecture applies:
+
+- IAM principles
+- Security Groups
+- Controlled administrative access
+- Least-privilege concepts
+- Network segmentation
+- Secure infrastructure configuration practices
+
+### Multi-Environment Configuration
+
+The Terraform structure supports separate configuration for:
+
+```text
+dev
+stage
+prod
+```
+
+Environment-specific values are maintained separately using Terraform variable files, allowing the same infrastructure modules to be reused across environments.
 
 ---
 
-## Optional Extensions
+## Implementation Journey
 
-The core project focuses on AWS infrastructure using Terraform. The following extensions can be added to expand the portfolio value:
+The repository retains its week-based structure because the infrastructure was developed incrementally.
 
-- Kubernetes using EKS, k3s, or kind
-- CI/CD pipelines using GitHub Actions or AWS CodePipeline
-- AI/ML deployment using AWS SageMaker, Lambda, and API Gateway
-- Centralized logging and monitoring with Grafana or OpenSearch
-- Cost optimization and tagging strategy
-- Multi-environment promotion workflow across dev, stage, and prod
+### Phase 1 – Cloud Foundations & Networking
+
+- Configured Terraform and AWS CLI
+- Created the initial Terraform project structure
+- Built a VPC with public and private subnets
+- Expanded the network across multiple Availability Zones
+- Added Internet Gateway and NAT connectivity
+- Modularized networking components
+
+### Phase 2 – Compute & Administrative Access
+
+- Deployed EC2 instances
+- Configured user data scripts
+- Added Bastion host access
+- Used Terraform outputs for inter-module communication
+- Improved infrastructure access and troubleshooting workflows
+
+### Phase 3 – Load Balancing & Monitoring
+
+- Deployed an Application Load Balancer
+- Connected compute resources to ALB Target Groups
+- Configured health checks
+- Added CloudWatch monitoring and alarms
+- Expanded Terraform modules for operational visibility
+
+### Phase 4 – Scalable Compute
+
+- Developed a hybrid compute module
+- Added support for both EC2 and Auto Scaling Group deployment modes
+- Used Launch Templates for ASG deployments
+- Tested infrastructure behavior under different compute configurations
+- Integrated CloudWatch alarms with scaling-related infrastructure
+
+### Phase 5 – Security, Reliability & Operational Improvements
+
+- Applied IAM and least-privilege principles
+- Improved network security controls
+- Reviewed infrastructure configuration for security and reliability
+- Improved monitoring and operational visibility
+- Prepared the architecture for multi-environment deployment
+
+### Phase 6 – Architecture Integration
+
+- Integrated infrastructure modules into a complete architecture
+- Organized dev, stage, and prod configuration
+- Documented architecture and Terraform components
+- Reviewed reliability, monitoring, security, and maintainability
+- Prepared architecture diagrams and technical documentation
 
 ---
 
@@ -139,10 +192,10 @@ The core project focuses on AWS infrastructure using Terraform. The following ex
 
 ```bash
 git clone <repo-url>
-cd 8-Week-DevOps-Platform-engineer-Challenge
+cd 8-Week-DevOps-Platform-engineer-challenge
 ```
 
-### 2. Navigate to the target week
+### 2. Navigate to the target implementation directory
 
 ```bash
 cd Week1
@@ -163,87 +216,102 @@ terraform plan -var-file=envs/dev/dev.tfvars
 ### 5. Apply the infrastructure
 
 ```bash
-terraform apply -var-file=envs/dev/dev.tfvars --auto-approve
+terraform apply -var-file=envs/dev/dev.tfvars
 ```
+
+> Review the Terraform execution plan carefully before approving infrastructure changes.
 
 ### 6. Switch between EC2 and ASG mode
 
-From Week 5 onwards, the compute module supports switching between EC2 and Auto Scaling Group mode:
+From the hybrid compute implementation onward, the compute module supports different deployment modes:
 
 ```hcl
 compute_mode = "ec2" # or "asg"
 ```
 
-### 7. Destroy resources after testing
+### 7. Destroy test resources
 
 ```bash
-terraform destroy -var-file=envs/dev/dev.tfvars --auto-approve
+terraform destroy -var-file=envs/dev/dev.tfvars
 ```
 
 ---
 
-## Key Learnings
+## Engineering Decisions
 
-- Modular Terraform design for reusable infrastructure
-- Multi-tier AWS networking with public and private subnets
-- Hybrid compute strategies for small-scale and scalable deployments
-- Application Load Balancer deployment and integration
-- CloudWatch monitoring, alarms, and dashboard setup
-- Disaster readiness and auto-healing with Auto Scaling Groups
-- Security and IAM best practices
-- Environment-based infrastructure configuration
-- Infrastructure documentation for portfolio and GitHub showcase
-- Translating infrastructure operations experience into cloud engineering practice
+### Why Terraform Modules?
 
----
+Reusable modules separate infrastructure responsibilities and make the architecture easier to maintain, test, and extend.
 
-## Portfolio Value
+### Why Multi-AZ Networking?
 
-This project is part of my transition from enterprise Infrastructure Operations into Cloud Infrastructure, DevOps, and Platform Engineering.
+Distributing network resources across Availability Zones provides a stronger foundation for highly available workloads.
 
-It reflects practical, hands-on work across infrastructure design, automation, monitoring, security, and cloud operations — the same areas required to operate stable and production-ready cloud environments.
+### Why EC2 and Auto Scaling Group Modes?
 
-This repository is intended to show not only Terraform syntax, but also infrastructure thinking:
+Supporting both deployment patterns demonstrates how infrastructure can evolve from simple workloads toward more scalable architectures without redesigning the entire Terraform structure.
 
-- How components are structured
-- How environments are separated
-- How compute can evolve from EC2 to Auto Scaling Groups
-- How monitoring and alarms support operational visibility
-- How security and IAM should be considered from the beginning
-- How documentation supports maintainability and handover
+### Why an Application Load Balancer?
+
+The ALB provides a scalable entry point for application traffic while enabling health checks and integration with Auto Scaling Groups.
+
+### Why Separate Environments?
+
+Separating dev, stage, and prod configuration allows infrastructure modules to remain reusable while environment-specific settings can evolve independently.
 
 ---
 
-## Resume-Ready Highlights
+## Key Engineering Outcomes
 
-- Built modular AWS infrastructure using Terraform, including VPC, compute, ALB, monitoring, and security modules.
-- Designed hybrid compute deployment patterns supporting both EC2 and Auto Scaling Groups.
-- Implemented CloudWatch monitoring and alarms to improve operational visibility.
-- Applied security best practices across IAM, security groups, encryption, and access control.
-- Structured infrastructure for multiple environments using dev, stage, and prod configuration files.
-- Documented architecture, modules, usage steps, and operational considerations for portfolio presentation.
+Through this project, I implemented and explored:
+
+- Modular Infrastructure as Code with Terraform
+- Multi-tier AWS networking
+- Public and private subnet design
+- EC2 and Auto Scaling deployment patterns
+- Application Load Balancing
+- Infrastructure health checks
+- CloudWatch monitoring and alarms
+- Security Groups and IAM principles
+- Environment-specific Terraform configuration
+- Infrastructure troubleshooting and operational validation
+- Architecture documentation and maintainable module design
+
+The project combines my enterprise infrastructure operations background with hands-on AWS infrastructure engineering and automation.
+
+---
+
+## Roadmap
+
+Potential future improvements include:
+
+- Amazon EKS deployment
+- CI/CD for Terraform using GitHub Actions
+- Automated Terraform validation and security scanning
+- Centralized logging and visualization
+- AWS WAF integration
+- AWS Secrets Manager integration
+- Cost allocation tags and FinOps controls
+- Automated multi-environment promotion
+- Additional resilience and disaster-recovery testing
 
 ---
 
 ## Contact / Community
 
-- LinkedIn: https://www.linkedin.com/in/ahmedshihab2023/
-- Website: https://awsbenshehab.net
+- LinkedIn: [Ahmed Bin Shehab](https://www.linkedin.com/in/ahmedbinshehab)
+- Website: [awsbenshehab.net](https://awsbenshehab.net)
 
-Questions, feedback, or collaboration ideas are welcome.
+Questions, feedback, and collaboration ideas are welcome.
 
 ---
 
 ## License
 
-<p align="center">
-  <img src="https://img.shields.io/badge/License-Proprietary-red.svg?style=for-the-badge" alt="License: Proprietary" />
-  <img src="https://img.shields.io/badge/Protected%20by-©%20Ahmed%20Bin%20Shehab-blue.svg?style=for-the-badge" alt="Protected © Ahmed Bin Shehab" />
-</p>
+© 2026 Ahmed Bin Shehab — All Rights Reserved.
 
-<p align="center">
-  © 2025 <strong>Ahmed Bin Shehab</strong> — All Rights Reserved.<br>
-  This repository is shared for portfolio and learning purposes.<br>
-  Reuse, redistribution, or commercial use requires written permission.<br>
-  📧 For collaboration or usage inquiries: <a href="mailto:a.shihab@hotmail.com">a.shihab@hotmail.com</a>
-</p>
+This repository is shared for portfolio and educational purposes.
+
+Reuse, redistribution, or commercial use requires written permission.
+
+For collaboration or usage inquiries: a.shihab@hotmail.com
