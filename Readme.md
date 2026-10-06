@@ -24,7 +24,7 @@ The architecture demonstrates practical infrastructure engineering patterns for 
 
 ## Architecture Diagram
 
-![AWS Platform Infrastructure Architecture](images/Diagram.png)
+![AWS Platform Infrastructure Architecture](./images/Diagram.png)
 
 The architecture represents a multi-tier AWS environment designed with availability, scalability, security, and operational visibility in mind.
 
